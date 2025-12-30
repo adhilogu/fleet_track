@@ -1,5 +1,3 @@
-// File: src/main/java/com/example/fleet_track/models/Vehicle.java (Cleaned-up version: Removed redundant manual getters/setters since Lombok handles them;
-// Fixed getID() to getId(); Ensured consistent naming and imports)
 package com.example.fleet_track.models;
 
 import com.fasterxml.jackson.annotation.JsonBackReference;
@@ -19,16 +17,20 @@ import java.util.*;
 @ToString(exclude = {"assignedDrivers", "services", "assignments"})
 public class Vehicle {
 
-    public enum VehicleType { BUS, CAR, TRUCK }
-    public enum VehicleStatus { ACTIVE, INACTIVE, SERVICE }
+    public enum VehicleType { BUS, CAR, TRUCK, CAB }
+    public enum VehicleStatus { ACTIVE, INACTIVE, SERVICE, IDLE, MAINTENANCE, OUT_OF_SERVICE }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     private String vehicleName;
+
     @Column(name = "registration_number", unique = true)
     private String registrationNumber;
+
+    // ADD THIS FIELD
+    private String model;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -38,15 +40,17 @@ public class Vehicle {
     private int capacity;
 
     @Column(nullable = false)
-    private float fuelLevel = 100.0f; // Default full
+    private float fuelLevel = 100.0f;
 
     @Column(nullable = false)
     private float mileage = 0.0f;
 
     @Column(nullable = false)
-    private String currentLocation = "Depot"; // Default
+    private String currentLocation = "Depot";
 
-    private LocalDate serviceDate;
+    // RENAME THIS FIELD
+    private LocalDate lastServiceDate;
+
     private LocalDate nextServiceDate;
 
     @Enumerated(EnumType.STRING)

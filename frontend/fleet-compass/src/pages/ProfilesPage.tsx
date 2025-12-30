@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Users, 
   Search, 
@@ -9,12 +9,11 @@ import {
   Star,
   Calendar,
   Award,
-  MapPin,
   Plus,
   Upload,
   Filter,
   Lock,
-  Car
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
@@ -70,96 +69,10 @@ interface SystemUser {
   createdDate: string;
 }
 
-// Mock data (replace with API calls later)
-const mockDrivers: Driver[] = [
-  {
-    id: 'DRV001',
-    name: 'John Smith',
-    email: 'john.smith@example.com',
-    phone: '+1 234 567 8900',
-    licenseNumber: 'DL-123456',
-    status: 'active',
-    totalTrips: 245,
-    rating: 4.8,
-    joinedDate: '2023-01-15',
-    assignedVehicle: 'VEH001'
-  },
-  {
-    id: 'DRV002',
-    name: 'Sarah Johnson',
-    email: 'sarah.j@example.com',
-    phone: '+1 234 567 8901',
-    licenseNumber: 'DL-789012',
-    status: 'on-trip',
-    totalTrips: 312,
-    rating: 4.9,
-    joinedDate: '2022-11-20'
-  }
-];
-
-const mockVehicles: Vehicle[] = [
-  {
-    id: 'VEH001',
-    name: 'Fleet Bus 01',
-    plateNumber: 'ABC-1234',
-    model: 'Mercedes-Benz Sprinter',
-    type: 'bus',
-    capacity: 50,
-    status: 'active',
-    lastServiceDate: '2024-11-15',
-    nextServiceDate: '2025-02-15',
-    assignedDriver: 'DRV001'
-  },
-  {
-    id: 'VEH002',
-    name: 'Cargo Truck 02',
-    plateNumber: 'XYZ-5678',
-    model: 'Ford Transit',
-    type: 'truck',
-    capacity: 2000,
-    status: 'maintenance',
-    lastServiceDate: '2024-12-01',
-    nextServiceDate: '2025-03-01'
-  },
-  {
-    id: 'VEH003',
-    name: 'City Car 03',
-    plateNumber: 'DEF-9012',
-    model: 'Toyota Camry',
-    type: 'car',
-    capacity: 5,
-    status: 'active',
-    lastServiceDate: '2024-12-10',
-    nextServiceDate: '2025-03-10'
-  }
-];
-
-const mockUsers: SystemUser[] = [
-  {
-    id: 'USR001',
-    name: 'Admin User',
-    email: 'admin@example.com',
-    phone: '+1 234 567 8900',
-    username: 'admin',
-    role: 'admin',
-    createdDate: '2023-01-01'
-  },
-  {
-    id: 'USR002',
-    name: 'Manager Mike',
-    email: 'mike@example.com',
-    phone: '+1 234 567 8902',
-    username: 'manager_mike',
-    role: 'manager',
-    createdDate: '2023-03-15'
-  }
-];
-
 const ProfilesPage: React.FC = () => {
   const { user, token } = useAuth();
   const { toast } = useToast();
 
-  // Real admin check from authenticated user
   const isAdmin = user?.role?.toLowerCase() === 'admin';
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -167,11 +80,16 @@ const ProfilesPage: React.FC = () => {
   const [roleFilter, setRoleFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [vehicleTypeFilter, setVehicleTypeFilter] = useState('all');
-
   const [editMode, setEditMode] = useState(false);
   const [editedUser, setEditedUser] = useState<SystemUser | null>(null);
   const [editedDriver, setEditedDriver] = useState<Driver | null>(null);
   const [editedVehicle, setEditedVehicle] = useState<Vehicle | null>(null);
+
+  // Data states
+  const [users, setUsers] = useState<SystemUser[]>([]);
+  const [drivers, setDrivers] = useState<Driver[]>([]);
+  const [vehicles, setVehicles] = useState<Vehicle[]>([]);
+  const [loading, setLoading] = useState(false);
 
   // Dialog states
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
@@ -193,29 +111,302 @@ const ProfilesPage: React.FC = () => {
     photo: null as File | null
   });
 
-  // Driver & Vehicle forms (unchanged)
-  const [driverForm, setDriverForm] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    role: 'driver' as UserRole,
-    username: '',
-    password: '',
-    photo: null as File | null
-  });
-
   const [vehicleForm, setVehicleForm] = useState({
     vehicleName: '',
     registrationNumber: '',
-    type: 'bus' as VehicleType,
+    model: '',
+    type: 'car' as VehicleType,
     capacity: 0,
     lastServiceDate: '',
     nextServiceDate: '',
     status: 'active' as VehicleStatus
   });
 
-  // Filtering logic (unchanged)
-  const filteredUsers = mockUsers.filter((u) => {
+  // Helper function to get authentication token
+  const getAuthToken = (): string | null => {
+    return token || localStorage.getItem('jwt_token') || localStorage.getItem('jwtToken') || localStorage.getItem('token');
+  };
+
+  // Fetch all users
+  const fetchUsers = async () => {
+    const authToken = getAuthToken();
+    if (!authToken) return;
+
+    try {
+      setLoading(true);
+      const response = await fetch('http://localhost:8080/api/v1/profiles/users', {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setUsers(data.users);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching users:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch all drivers
+  const fetchDrivers = async () => {
+    const authToken = getAuthToken();
+    if (!authToken) return;
+
+    try {
+      setLoading(true);
+      const response = await fetch('http://localhost:8080/api/v1/profiles/drivers', {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setDrivers(data.drivers);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching drivers:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch all vehicles
+  const fetchVehicles = async () => {
+    const authToken = getAuthToken();
+    if (!authToken) return;
+
+    try {
+      setLoading(true);
+      const response = await fetch('http://localhost:8080/api/v1/profiles/vehicles', {
+        headers: {
+          'Authorization': `Bearer ${authToken}`,
+        },
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setVehicles(data.vehicles);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching vehicles:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fetch data on mount and tab change
+  useEffect(() => {
+    if (isAdmin) {
+      if (activeTab === 'users') {
+        fetchUsers();
+      } else if (activeTab === 'drivers') {
+        fetchDrivers();
+      } else if (activeTab === 'vehicles') {
+        fetchVehicles();
+      }
+    }
+  }, [activeTab, isAdmin]);
+
+  // User creation handler
+  const handleUserSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+
+    if (!userForm.username.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Username is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!userForm.password.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Password is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const payload = {
+      username: userForm.username.trim(),
+      password: userForm.password,
+      name: userForm.name.trim() || "Default User",
+      mailId: userForm.email.trim() || "-",
+      phoneNumber: userForm.phone.trim() || "-",
+      role: userForm.role.toUpperCase()
+    };
+
+    const authToken = getAuthToken();
+
+    if (!authToken) {
+      toast({
+        title: "Not Authenticated",
+        description: "You must be logged in to create a user.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:8080/api/v1/profiles/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+
+      if (response.ok && data.success) {
+        toast({
+          title: "Success!",
+          description: `User "${data.username}" created successfully.`,
+        });
+
+        setIsUserDialogOpen(false);
+        setUserForm({
+          name: '',
+          email: '',
+          phone: '',
+          username: '',
+          password: '',
+          role: 'user',
+          photo: null
+        });
+
+        // Refresh the appropriate list
+        if (userForm.role === 'driver') {
+          fetchDrivers();
+        } else {
+          fetchUsers();
+        }
+      } else {
+        toast({
+          title: "Failed to create user",
+          description: data.message || `Error: ${response.status}`,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("User creation error:", error);
+      toast({
+        title: "Network Error",
+        description: "Unable to connect to server.",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleVehicleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
+
+  const payload = {
+    vehicleName: vehicleForm.vehicleName.trim(),
+    registrationNumber: vehicleForm.registrationNumber.trim(),
+    model: vehicleForm.model.trim() || "Unknown Model",
+    type: vehicleForm.type.toUpperCase(),
+    capacity: vehicleForm.capacity.toString(),
+    lastServiceDate: vehicleForm.lastServiceDate,
+    nextServiceDate: vehicleForm.nextServiceDate,
+    status: vehicleForm.status.toUpperCase().replace('-', '_')
+  };
+
+  const authToken = getAuthToken();
+
+  if (!authToken) {
+    toast({
+      title: "Not Authenticated",
+      description: "You must be logged in to create a vehicle.",
+      variant: "destructive",
+    });
+    return;
+  }
+
+  try {
+    const response = await fetch('http://localhost:8080/api/v1/profiles/vehicles/create', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${authToken}`,
+      },
+      body: JSON.stringify(payload),
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.success) {
+      toast({
+        title: "Success!",
+        description: `Vehicle "${data.vehicleName}" created successfully.`,
+      });
+
+      setIsVehicleDialogOpen(false);
+      setVehicleForm({
+        vehicleName: '',
+        registrationNumber: '',
+        model: '',
+        type: 'car',
+        capacity: 0,
+        lastServiceDate: '',
+        nextServiceDate: '',
+        status: 'active'
+      });
+
+      fetchVehicles();
+    } else {
+      toast({
+        title: "Failed to create vehicle",
+        description: data.message || `Error: ${response.status}`,
+        variant: "destructive",
+      });
+    }
+  } catch (error) {
+    console.error("Vehicle creation error:", error);
+    toast({
+      title: "Network Error",
+      description: "Unable to connect to server.",
+      variant: "destructive",
+    });
+  }
+};
+
+const handleUpdateUser = () => { 
+  console.log('Update user:', editedUser); 
+  setEditMode(false); 
+  setSelectedUser(null); 
+};
+
+const handleUpdateDriver = () => { 
+  console.log('Update driver:', editedDriver); 
+  setEditMode(false); 
+  setSelectedDriver(null); 
+};
+
+const handleUpdateVehicle = () => { 
+  console.log('Update vehicle:', editedVehicle); 
+  setEditMode(false); 
+  setSelectedVehicle(null); 
+};
+
+
+
+  // Filtering logic
+  const filteredUsers = users.filter((u) => {
     const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.username.toLowerCase().includes(searchQuery.toLowerCase());
@@ -223,7 +414,7 @@ const ProfilesPage: React.FC = () => {
     return matchesSearch && matchesRole;
   });
 
-  const filteredDrivers = mockDrivers.filter((d) => {
+  const filteredDrivers = drivers.filter((d) => {
     const matchesSearch = d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       d.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
       d.email.toLowerCase().includes(searchQuery.toLowerCase());
@@ -231,7 +422,7 @@ const ProfilesPage: React.FC = () => {
     return matchesSearch && matchesStatus;
   });
 
-  const filteredVehicles = mockVehicles.filter((v) => {
+  const filteredVehicles = vehicles.filter((v) => {
     const matchesSearch = v.plateNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
       v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       v.model.toLowerCase().includes(searchQuery.toLowerCase());
@@ -239,9 +430,9 @@ const ProfilesPage: React.FC = () => {
     return matchesSearch && matchesType;
   });
 
-  // Helper functions (unchanged)
-  const getVehicleById = (id: string) => mockVehicles.find(v => v.id === id);
-  const getDriverById = (id: string) => mockDrivers.find(d => d.id === id);
+  // Helper functions
+  const getVehicleById = (id: string) => vehicles.find(v => v.id === id);
+  const getDriverById = (id: string) => drivers.find(d => d.id === id);
 
   const getDriverStatusColor = (status: DriverStatus) => {
     switch (status) {
@@ -279,109 +470,6 @@ const ProfilesPage: React.FC = () => {
     }
   };
 
-  // UPDATED: User creation with proper auth & toast
-  const handleUserSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!userForm.username.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Username is required.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!userForm.password.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Password is required.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const payload = {
-      name: userForm.name.trim() || "Default User",
-      username: userForm.username.trim(),
-      password: userForm.password,
-      mailId: userForm.email.trim() || "-",
-      phoneNumber: userForm.phone.trim() || "-",
-      role: userForm.role.toUpperCase() // Sends "ADMIN", "DRIVER", etc.
-    };
-
-    const authToken = token || localStorage.getItem('jwtToken') || localStorage.getItem('token');
-
-    if (!authToken) {
-      toast({
-        title: "Not Authenticated",
-        description: "You must be logged in to create a user.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const response = await fetch('http://localhost:8080/api/v1/profiles/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      if (response.ok) {
-        const createdUser = await response.json();
-        toast({
-          title: "Success!",
-          description: `User "${createdUser.username}" created successfully.`,
-        });
-
-        setIsUserDialogOpen(false);
-        setUserForm({
-          name: '',
-          email: '',
-          phone: '',
-          username: '',
-          password: '',
-          role: 'user',
-          photo: null
-        });
-      } else {
-        const errorData = await response.json().catch(() => ({}));
-        toast({
-          title: "Failed to create user",
-          description: errorData.message || `Error: ${response.status}`,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("User creation error:", error);
-      toast({
-        title: "Network Error",
-        description: "Unable to connect to server.",
-        variant: "destructive",
-      });
-    }
-  };
-
-  // Other handlers (unchanged for now)
-  const handleVehicleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    toast({ title: "Vehicle Added", description: "This is a placeholder." });
-    setIsVehicleDialogOpen(false);
-    setVehicleForm({
-      vehicleName: '',
-      registrationNumber: '',
-      type: 'bus',
-      capacity: 0,
-      lastServiceDate: '',
-      nextServiceDate: '',
-      status: 'active'
-    });
-  };
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setUserForm({ ...userForm, photo: e.target.files[0] });
@@ -392,9 +480,9 @@ const ProfilesPage: React.FC = () => {
   const handleDeleteUser = (userId: string) => { console.log('Delete user:', userId); setSelectedUser(null); };
   const handleDeleteDriver = (driverId: string) => { console.log('Delete driver:', driverId); setSelectedDriver(null); };
   const handleDeleteVehicle = (vehicleId: string) => { console.log('Delete vehicle:', vehicleId); setSelectedVehicle(null); };
-  const handleUpdateUser = () => { console.log('Update user:', editedUser); setEditMode(false); setSelectedUser(null); };
-  const handleUpdateDriver = () => { console.log('Update driver:', editedDriver); setEditMode(false); setSelectedDriver(null); };
-  const handleUpdateVehicle = () => { console.log('Update vehicle:', editedVehicle); setEditMode(false); setSelectedVehicle(null); };
+  //const handleUpdateUser = () => { console.log('Update user:', editedUser); setEditMode(false); setSelectedUser(null); };
+  //const handleUpdateDriver = () => { console.log('Update driver:', editedDriver); setEditMode(false); setSelectedDriver(null); };
+  //const handleUpdateVehicle = () => { console.log('Update vehicle:', editedVehicle); setEditMode(false); setSelectedVehicle(null); };
   const handleDriverStatusUpdate = (newStatus: DriverStatus) => { if (selectedDriver) setSelectedDriver({ ...selectedDriver, status: newStatus }); };
   const handleVehicleStatusUpdate = (newStatus: VehicleStatus) => { if (selectedVehicle) setSelectedVehicle({ ...selectedVehicle, status: newStatus }); };
 

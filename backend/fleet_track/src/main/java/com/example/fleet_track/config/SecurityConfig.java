@@ -44,6 +44,10 @@ public class SecurityConfig {
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/driver/**").hasRole("DRIVER")
                         .requestMatchers("/api/services/**").authenticated()
+
+                        .requestMatchers("/api/v1/profiles/create").hasRole("ADMIN")
+                        .requestMatchers("/api/v1/profiles/**").hasRole("ADMIN")
+
                         .requestMatchers(HttpMethod.POST, "/api/services").hasRole("ADMIN")
                         .requestMatchers("/api/vehicles/**").authenticated()
                         .requestMatchers("/api/**").authenticated()

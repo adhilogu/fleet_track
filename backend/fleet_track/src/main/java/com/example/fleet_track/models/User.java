@@ -35,6 +35,7 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String name = "Default User"; // Default
 
+    @Column(nullable = true)
     private Long profile_photo;
 
     @Column(unique = true, nullable = false)
@@ -74,6 +75,9 @@ public class User implements UserDetails {
     public String getPassword() {
         return password;
     }
+
+
+
 
     @Override
     public String getUsername() {
