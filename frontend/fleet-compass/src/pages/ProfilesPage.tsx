@@ -24,12 +24,14 @@ import { Button } from '@/components/ui/button';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useAuth } from '@/contexts/AuthContext';
+import { useToast } from '@/hooks/use-toast';
 
 // Types
 type DriverStatus = 'active' | 'on-trip' | 'off-duty' | 'on-leave';
 type VehicleType = 'bus' | 'truck' | 'cab' | 'car';
 type VehicleStatus = 'active' | 'idle' | 'maintenance' | 'out-of-service';
-type UserRole = '' | 'driver' | 'manager' | 'user';
+type UserRole = 'admin' | 'driver' | 'manager' | 'user';
 
 interface Driver {
   id: string;
@@ -68,7 +70,7 @@ interface SystemUser {
   createdDate: string;
 }
 
-// Mock data
+// Mock data (replace with API calls later)
 const mockDrivers: Driver[] = [
   {
     id: 'DRV001',
@@ -135,11 +137,11 @@ const mockVehicles: Vehicle[] = [
 const mockUsers: SystemUser[] = [
   {
     id: 'USR001',
-    name: ' User',
-    email: '@example.com',
+    name: 'Admin User',
+    email: 'admin@example.com',
     phone: '+1 234 567 8900',
-    username: '',
-    role: '',
+    username: 'admin',
+    role: 'admin',
     createdDate: '2023-01-01'
   },
   {
@@ -154,8 +156,12 @@ const mockUsers: SystemUser[] = [
 ];
 
 const ProfilesPage: React.FC = () => {
-  const is = true;
-  
+  const { user, token } = useAuth();
+  const { toast } = useToast();
+
+  // Real admin check from authenticated user
+  const isAdmin = user?.role?.toLowerCase() === 'admin';
+
   const [searchQuery, setSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState('users');
   const [roleFilter, setRoleFilter] = useState('all');
@@ -167,11 +173,10 @@ const ProfilesPage: React.FC = () => {
   const [editedDriver, setEditedDriver] = useState<Driver | null>(null);
   const [editedVehicle, setEditedVehicle] = useState<Vehicle | null>(null);
 
-  
   // Dialog states
   const [isUserDialogOpen, setIsUserDialogOpen] = useState(false);
   const [isVehicleDialogOpen, setIsVehicleDialogOpen] = useState(false);
-  
+
   // View detail dialogs
   const [selectedUser, setSelectedUser] = useState<SystemUser | null>(null);
   const [selectedDriver, setSelectedDriver] = useState<Driver | null>(null);
@@ -188,7 +193,7 @@ const ProfilesPage: React.FC = () => {
     photo: null as File | null
   });
 
-  // Driver form state
+  // Driver & Vehicle forms (unchanged)
   const [driverForm, setDriverForm] = useState({
     name: '',
     email: '',
@@ -199,7 +204,6 @@ const ProfilesPage: React.FC = () => {
     photo: null as File | null
   });
 
-  // Vehicle form state
   const [vehicleForm, setVehicleForm] = useState({
     vehicleName: '',
     registrationNumber: '',
@@ -210,32 +214,32 @@ const ProfilesPage: React.FC = () => {
     status: 'active' as VehicleStatus
   });
 
-  // Filtered data
-  const filteredUsers = mockUsers.filter((user) => {
-    const matchesSearch = user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.username.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesRole = roleFilter === 'all' || user.role === roleFilter;
+  // Filtering logic (unchanged)
+  const filteredUsers = mockUsers.filter((u) => {
+    const matchesSearch = u.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.username.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesRole = roleFilter === 'all' || u.role === roleFilter;
     return matchesSearch && matchesRole;
   });
 
-  const filteredDrivers = mockDrivers.filter((driver) => {
-    const matchesSearch = driver.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      driver.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      driver.email.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesStatus = statusFilter === 'all' || driver.status === statusFilter;
+  const filteredDrivers = mockDrivers.filter((d) => {
+    const matchesSearch = d.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      d.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      d.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesStatus = statusFilter === 'all' || d.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
 
-  const filteredVehicles = mockVehicles.filter((vehicle) => {
-    const matchesSearch = vehicle.plateNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      vehicle.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      vehicle.model.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesType = vehicleTypeFilter === 'all' || vehicle.type === vehicleTypeFilter;
+  const filteredVehicles = mockVehicles.filter((v) => {
+    const matchesSearch = v.plateNumber.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      v.model.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesType = vehicleTypeFilter === 'all' || v.type === vehicleTypeFilter;
     return matchesSearch && matchesType;
   });
 
-  // Helper functions
+  // Helper functions (unchanged)
   const getVehicleById = (id: string) => mockVehicles.find(v => v.id === id);
   const getDriverById = (id: string) => mockDrivers.find(d => d.id === id);
 
@@ -259,7 +263,7 @@ const ProfilesPage: React.FC = () => {
 
   const getRoleColor = (role: UserRole) => {
     switch (role) {
-      case '': return 'bg-purple-500/20 text-purple-700 border-purple-500/30';
+      case 'admin': return 'bg-purple-500/20 text-purple-700 border-purple-500/30';
       case 'manager': return 'bg-blue-500/20 text-blue-700 border-blue-500/30';
       case 'driver': return 'bg-green-500/20 text-green-700 border-green-500/30';
       case 'user': return 'bg-gray-500/20 text-gray-700 border-gray-500/30';
@@ -275,25 +279,97 @@ const ProfilesPage: React.FC = () => {
     }
   };
 
-  // Form handlers
-  const handleUserSubmit = (e: React.FormEvent) => {
+  // UPDATED: User creation with proper auth & toast
+  const handleUserSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('User submitted:', userForm);
-    setIsUserDialogOpen(false);
-    setUserForm({
-      name: '',
-      email: '',
-      phone: '',
-      username: '',
-      password: '',
-      role: 'user',
-      photo: null
-    });
+
+    if (!userForm.username.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Username is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!userForm.password.trim()) {
+      toast({
+        title: "Validation Error",
+        description: "Password is required.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const payload = {
+      name: userForm.name.trim() || "Default User",
+      username: userForm.username.trim(),
+      password: userForm.password,
+      mailId: userForm.email.trim() || "-",
+      phoneNumber: userForm.phone.trim() || "-",
+      role: userForm.role.toUpperCase() // Sends "ADMIN", "DRIVER", etc.
+    };
+
+    const authToken = token || localStorage.getItem('jwtToken') || localStorage.getItem('token');
+
+    if (!authToken) {
+      toast({
+        title: "Not Authenticated",
+        description: "You must be logged in to create a user.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:8080/api/v1/profiles/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      if (response.ok) {
+        const createdUser = await response.json();
+        toast({
+          title: "Success!",
+          description: `User "${createdUser.username}" created successfully.`,
+        });
+
+        setIsUserDialogOpen(false);
+        setUserForm({
+          name: '',
+          email: '',
+          phone: '',
+          username: '',
+          password: '',
+          role: 'user',
+          photo: null
+        });
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        toast({
+          title: "Failed to create user",
+          description: errorData.message || `Error: ${response.status}`,
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("User creation error:", error);
+      toast({
+        title: "Network Error",
+        description: "Unable to connect to server.",
+        variant: "destructive",
+      });
+    }
   };
 
+  // Other handlers (unchanged for now)
   const handleVehicleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    console.log('Vehicle submitted:', vehicleForm);
+    toast({ title: "Vehicle Added", description: "This is a placeholder." });
     setIsVehicleDialogOpen(false);
     setVehicleForm({
       vehicleName: '',
@@ -306,67 +382,21 @@ const ProfilesPage: React.FC = () => {
     });
   };
 
-  const handleDriverStatusUpdate = (newStatus: DriverStatus) => {
-    if (selectedDriver) {
-      console.log('Update driver status:', selectedDriver.id, newStatus);
-      // Add your API call here to update driver status
-      setSelectedDriver({ ...selectedDriver, status: newStatus });
-    }
-  };
-
-  const handleVehicleStatusUpdate = (newStatus: VehicleStatus) => {
-    if (selectedVehicle) {
-      console.log('Update vehicle status:', selectedVehicle.id, newStatus);
-      // Add your API call here to update vehicle status
-      setSelectedVehicle({ ...selectedVehicle, status: newStatus });
-    }
-  };
-
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setUserForm({ ...userForm, photo: e.target.files[0] });
     }
   };
 
-  const handleDeleteUser = (userId: string) => {
-  console.log('Delete user:', userId);
-  // Add your API call here
-  setSelectedUser(null);
-};
-
-const handleDeleteDriver = (driverId: string) => {
-  console.log('Delete driver:', driverId);
-  // Add your API call here
-  setSelectedDriver(null);
-};
-
-const handleDeleteVehicle = (vehicleId: string) => {
-  console.log('Delete vehicle:', vehicleId);
-  // Add your API call here
-  setSelectedVehicle(null);
-};
-
-const handleUpdateUser = () => {
-  console.log('Update user:', editedUser);
-  // Add your API call here
-  setEditMode(false);
-  setSelectedUser(null);
-};
-
-const handleUpdateDriver = () => {
-  console.log('Update driver:', editedDriver);
-  // Add your API call here
-  setEditMode(false);
-  setSelectedDriver(null);
-};
-
-const handleUpdateVehicle = () => {
-  console.log('Update vehicle:', editedVehicle);
-  // Add your API call here
-  setEditMode(false);
-  setSelectedVehicle(null);
-};
-
+  // Placeholder handlers
+  const handleDeleteUser = (userId: string) => { console.log('Delete user:', userId); setSelectedUser(null); };
+  const handleDeleteDriver = (driverId: string) => { console.log('Delete driver:', driverId); setSelectedDriver(null); };
+  const handleDeleteVehicle = (vehicleId: string) => { console.log('Delete vehicle:', vehicleId); setSelectedVehicle(null); };
+  const handleUpdateUser = () => { console.log('Update user:', editedUser); setEditMode(false); setSelectedUser(null); };
+  const handleUpdateDriver = () => { console.log('Update driver:', editedDriver); setEditMode(false); setSelectedDriver(null); };
+  const handleUpdateVehicle = () => { console.log('Update vehicle:', editedVehicle); setEditMode(false); setSelectedVehicle(null); };
+  const handleDriverStatusUpdate = (newStatus: DriverStatus) => { if (selectedDriver) setSelectedDriver({ ...selectedDriver, status: newStatus }); };
+  const handleVehicleStatusUpdate = (newStatus: VehicleStatus) => { if (selectedVehicle) setSelectedVehicle({ ...selectedVehicle, status: newStatus }); };
 
   
   return (
@@ -380,7 +410,7 @@ const handleUpdateVehicle = () => {
           </p>
         </div>
         
-        {is && (
+        {isAdmin && (
           <div className="flex gap-2">
             {activeTab === 'users' && (
               <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
@@ -445,7 +475,7 @@ const handleUpdateVehicle = () => {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value=""></SelectItem>
+                          <SelectItem value="admin">Admin</SelectItem>
                           <SelectItem value="manager">Manager</SelectItem>
                           <SelectItem value="driver">Driver</SelectItem>
                           <SelectItem value="user">User</SelectItem>
@@ -692,7 +722,7 @@ const handleUpdateVehicle = () => {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">All Roles</SelectItem>
-              <SelectItem value=""></SelectItem>
+              <SelectItem value="admin">Admin</SelectItem>
               <SelectItem value="manager">Manager</SelectItem>
               <SelectItem value="driver">Driver</SelectItem>
               <SelectItem value="user">User</SelectItem>
@@ -1053,7 +1083,7 @@ const handleUpdateVehicle = () => {
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value=""></SelectItem>
+                    <SelectItem value="admin">Admin</SelectItem>
                     <SelectItem value="manager">Manager</SelectItem>
                     <SelectItem value="driver">Driver</SelectItem>
                     <SelectItem value="user">User</SelectItem>
