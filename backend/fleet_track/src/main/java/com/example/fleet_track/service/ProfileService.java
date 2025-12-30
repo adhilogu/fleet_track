@@ -7,7 +7,13 @@ import com.example.fleet_track.repository.VehicleRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-
+import org.springframework.web.multipart.MultipartFile;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.util.*;
 import java.util.stream.Collectors;
@@ -33,11 +39,12 @@ public class ProfileService {
             String name,
             String mailId,
             String phoneNumber,
-            String roleStr
-    ) {
+            String roleStr,
+            MultipartFile photo) {   // ← added parameter (can be null)
+
         Map<String, Object> response = new HashMap<>();
 
-        // Validation
+        // Existing validations...
         if (username == null || username.trim().isEmpty()) {
             response.put("success", false);
             response.put("message", "Username is required");
@@ -50,14 +57,13 @@ public class ProfileService {
             return response;
         }
 
-        // Check if username already exists
         if (userRepository.existsByUsername(username)) {
             response.put("success", false);
             response.put("message", "Username already exists");
             return response;
         }
 
-        // Parse role
+        // Role parsing (unchanged)
         User.UserRole role;
         try {
             role = roleStr != null ? User.UserRole.valueOf(roleStr.toUpperCase()) : User.UserRole.DRIVER;
@@ -65,7 +71,6 @@ public class ProfileService {
             role = User.UserRole.DRIVER;
         }
 
-        // Create new user
         User user = User.builder()
                 .username(username.trim())
                 .password(passwordEncoder.encode(password))
@@ -78,15 +83,39 @@ public class ProfileService {
                 .ratings(0.0f)
                 .build();
 
+        // Handle optional profile photo upload
+        if (photo != null && !photo.isEmpty()) {
+            try {
+                Path uploadDir = Paths.get("uploads/profiles");
+                Files.createDirectories(uploadDir);
+
+                String filename = "user_" + System.currentTimeMillis() + "_" +
+                        photo.getOriginalFilename().replaceAll("[^a-zA-Z0-9.]", "_");
+
+                Path filePath = uploadDir.resolve(filename);
+                Files.copy(photo.getInputStream(), filePath);
+
+                String photoPath = "/uploads/profiles/" + filename;
+                user.setProfilePhoto(photoPath);
+            } catch (IOException e) {
+                response.put("success", false);
+                response.put("message", "Failed to save profile photo: " + e.getMessage());
+                return response;
+            }
+        }
+        // If no photo was sent → profilePhoto remains null (that's correct!)
+
         User savedUser = userRepository.save(user);
 
-        // Build response
         response.put("success", true);
         response.put("message", "User created successfully");
         response.put("userId", savedUser.getId());
         response.put("username", savedUser.getUsername());
         response.put("name", savedUser.getName());
         response.put("role", savedUser.getRole().name());
+        if (savedUser.getProfilePhoto() != null) {
+            response.put("profilePhoto", savedUser.getProfilePhoto());
+        }
 
         return response;
     }
@@ -151,9 +180,7 @@ public class ProfileService {
         return response;
     }
 
-    /**
-     * Map User to response (for Users tab)
-     */
+
     private Map<String, Object> mapUserToResponse(User user) {
         Map<String, Object> userMap = new HashMap<>();
         userMap.put("id", "USR" + String.format("%03d", user.getId()));
@@ -162,7 +189,11 @@ public class ProfileService {
         userMap.put("phone", user.getPhoneNumber());
         userMap.put("username", user.getUsername());
         userMap.put("role", user.getRole().name().toLowerCase());
-        userMap.put("createdDate", new Date().toString()); // You may want to add a createdAt field to User entity
+        userMap.put("createdDate", new Date().toString());
+
+        // ADD THIS LINE
+        userMap.put("photo", user.getProfilePhoto()); // null if no photo
+
         return userMap;
     }
 
@@ -175,17 +206,20 @@ public class ProfileService {
         driverMap.put("name", driver.getName());
         driverMap.put("email", driver.getMailId());
         driverMap.put("phone", driver.getPhoneNumber());
-        driverMap.put("licenseNumber", "DL-" + driver.getId()); // You may want to add this field to User
+        driverMap.put("licenseNumber", "DL-" + driver.getId());
         driverMap.put("status", driver.getStatus().name().toLowerCase().replace("_", "-"));
         driverMap.put("totalTrips", driver.getTotalTrips());
         driverMap.put("rating", driver.getRatings());
-        driverMap.put("joinedDate", new Date().toString()); // Add createdAt field to User entity
+        driverMap.put("joinedDate", new Date().toString());
+        driverMap.put("photo", driver.getProfilePhoto()); // null if no photo
 
-        // Get assigned vehicle if any
         if (driver.getAssignedVehicles() != null && !driver.getAssignedVehicles().isEmpty()) {
             Vehicle vehicle = driver.getAssignedVehicles().iterator().next();
             driverMap.put("assignedVehicle", "VEH" + String.format("%03d", vehicle.getId()));
         }
+
+        // ADD THIS LINE
+
 
         return driverMap;
     }

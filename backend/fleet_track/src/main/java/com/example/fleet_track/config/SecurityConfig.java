@@ -23,6 +23,8 @@ import org.springframework.security.web.authentication.UsernamePasswordAuthentic
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
+import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
+import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.util.Arrays;
 import java.util.Collections;
@@ -40,7 +42,9 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable()).sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
+
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/driver/**").hasRole("DRIVER")
                         .requestMatchers("/api/services/**").authenticated()
@@ -50,6 +54,7 @@ public class SecurityConfig {
 
                         .requestMatchers(HttpMethod.POST, "/api/services").hasRole("ADMIN")
                         .requestMatchers("/api/vehicles/**").authenticated()
+
                         .requestMatchers("/api/**").authenticated()
                         .anyRequest().authenticated()
                 )
@@ -90,6 +95,15 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    @Configuration
+    public class WebConfig implements WebMvcConfigurer {
+        @Override
+        public void addResourceHandlers(ResourceHandlerRegistry registry) {
+            registry.addResourceHandler("/uploads/**")
+                    .addResourceLocations("file:uploads/");
+        }
+    }
+
     @Bean
     public AuthenticationManager authenticationManager(UserDetailsService userDetailsService,
                                                        PasswordEncoder passwordEncoder) {
@@ -97,4 +111,6 @@ public class SecurityConfig {
         provider.setPasswordEncoder(passwordEncoder);
         return new ProviderManager(Collections.singletonList(provider));
     }
+
+
 }

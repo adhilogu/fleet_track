@@ -35,8 +35,8 @@ public class User implements UserDetails {
     @Column(nullable = false)
     private String name = "Default User"; // Default
 
-    @Column(nullable = true)
-    private Long profile_photo;
+    @Column(name = "profile_photo")
+    private String profilePhoto;
 
     @Column(unique = true, nullable = false)
     private String username; // login
@@ -77,6 +77,13 @@ public class User implements UserDetails {
     }
 
 
+    public String getProfilePhoto() {
+        return profilePhoto;
+    }
+
+    public void setProfilePhoto(String profilePhoto) {
+        this.profilePhoto = profilePhoto;
+    }
 
 
     @Override

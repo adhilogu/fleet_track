@@ -2,9 +2,11 @@ package com.example.fleet_track.controller;
 
 import com.example.fleet_track.service.ProfileService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.Map;
 
@@ -20,30 +22,23 @@ public class ProfileController {
      * Admin endpoint to create a new user
      * Requires ADMIN role
      */
-    @PostMapping("/create")
+    @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Object>> createUser(@RequestBody Map<String, String> request) {
-        String username = request.get("username");
-        String password = request.get("password");
-        String name = request.get("name");
-        String mailId = request.get("mailId");
-        String phoneNumber = request.get("phoneNumber");
-        String roleStr = request.get("role");
+    public ResponseEntity<Map<String, Object>> createUser(
+            @RequestParam("username") String username,
+            @RequestParam("password") String password,
+            @RequestParam(value = "name", required = false) String name,
+            @RequestParam(value = "mailId", required = false) String mailId,
+            @RequestParam(value = "phoneNumber", required = false) String phoneNumber,
+            @RequestParam(value = "role", required = false) String roleStr,
+            @RequestParam(value = "photo", required = false) MultipartFile photo) {
 
         Map<String, Object> response = profileService.createUser(
-                username,
-                password,
-                name,
-                mailId,
-                phoneNumber,
-                roleStr
-        );
+                username, password, name, mailId, phoneNumber, roleStr, photo);
 
-        if ((Boolean) response.get("success")) {
-            return ResponseEntity.ok(response);
-        } else {
-            return ResponseEntity.badRequest().body(response);
-        }
+        return (Boolean) response.get("success")
+                ? ResponseEntity.ok(response)
+                : ResponseEntity.badRequest().body(response);
     }
 
     /**

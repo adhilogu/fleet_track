@@ -43,6 +43,7 @@ interface Driver {
   rating: number;
   joinedDate: string;
   assignedVehicle?: string;
+  photo?: string;
 }
 
 interface Vehicle {
@@ -220,97 +221,70 @@ const ProfilesPage: React.FC = () => {
 
   // User creation handler
   const handleUserSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!userForm.username.trim()) {
-      toast({
-        title: "Validation Error",
-        description: "Username is required.",
-        variant: "destructive",
+  if (!userForm.username.trim()) {
+    toast({ title: "Validation Error", description: "Username is required.", variant: "destructive" });
+    return;
+  }
+  if (!userForm.password.trim()) {
+    toast({ title: "Validation Error", description: "Password is required.", variant: "destructive" });
+    return;
+  }
+
+  const authToken = getAuthToken();
+  if (!authToken) {
+    toast({ title: "Not Authenticated", description: "...", variant: "destructive" });
+    return;
+  }
+
+  // Use FormData for multipart upload
+  const formData = new FormData();
+  formData.append("username", userForm.username.trim());
+  formData.append("password", userForm.password);
+  if (userForm.name.trim())   formData.append("name", userForm.name.trim());
+  if (userForm.email.trim())  formData.append("mailId", userForm.email.trim());
+  if (userForm.phone.trim())  formData.append("phoneNumber", userForm.phone.trim());
+  formData.append("role", userForm.role.toUpperCase());
+
+  // Only append photo if it exists (optional)
+  if (userForm.photo) {
+    formData.append("photo", userForm.photo);
+  }
+
+  try {
+    const response = await fetch('http://localhost:8080/api/v1/profiles/create', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${authToken}`,
+        // IMPORTANT: Do NOT set Content-Type manually when using FormData
+      },
+      body: formData,
+    });
+
+    const data = await response.json();
+
+    if (response.ok && data.success) {
+      toast({ title: "Success!", description: `User "${data.username}" created successfully.` });
+
+      setIsUserDialogOpen(false);
+      setUserForm({
+        name: '', email: '', phone: '', username: '', password: '', role: 'user', photo: null
       });
-      return;
-    }
 
-    if (!userForm.password.trim()) {
+      if (userForm.role === 'driver' ) fetchDrivers();
+      else fetchUsers();
+    } else {
       toast({
-        title: "Validation Error",
-        description: "Password is required.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const payload = {
-      username: userForm.username.trim(),
-      password: userForm.password,
-      name: userForm.name.trim() || "Default User",
-      mailId: userForm.email.trim() || "-",
-      phoneNumber: userForm.phone.trim() || "-",
-      role: userForm.role.toUpperCase()
-    };
-
-    const authToken = getAuthToken();
-
-    if (!authToken) {
-      toast({
-        title: "Not Authenticated",
-        description: "You must be logged in to create a user.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    try {
-      const response = await fetch('http://localhost:8080/api/v1/profiles/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        toast({
-          title: "Success!",
-          description: `User "${data.username}" created successfully.`,
-        });
-
-        setIsUserDialogOpen(false);
-        setUserForm({
-          name: '',
-          email: '',
-          phone: '',
-          username: '',
-          password: '',
-          role: 'user',
-          photo: null
-        });
-
-        // Refresh the appropriate list
-        if (userForm.role === 'driver') {
-          fetchDrivers();
-        } else {
-          fetchUsers();
-        }
-      } else {
-        toast({
-          title: "Failed to create user",
-          description: data.message || `Error: ${response.status}`,
-          variant: "destructive",
-        });
-      }
-    } catch (error) {
-      console.error("User creation error:", error);
-      toast({
-        title: "Network Error",
-        description: "Unable to connect to server.",
+        title: "Failed",
+        description: data.message || "Unknown error",
         variant: "destructive",
       });
     }
-  };
+  } catch (error) {
+    toast({ title: "Network Error", description: "...", variant: "destructive" });
+  }
+};
 
   const handleVehicleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
@@ -869,173 +843,177 @@ const handleUpdateVehicle = () => {
         </TabsList>
 
         {/* Users Tab */}
-        <TabsContent value="users" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredUsers.length === 0 ? (
-              <Card className="col-span-full glass border-border">
-                <CardContent className="p-8 text-center">
-                  <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-lg font-medium">No users found</p>
-                </CardContent>
-              </Card>
-            ) : (
-              filteredUsers.map((user) => (
-                <Card 
-                  key={user.id} 
-                  className="glass border-border hover:border-primary/30 transition-all duration-300 group cursor-pointer"
-                  onClick={() => setSelectedUser(user)}
-                >
-                  <CardContent className="p-0">
-                    {/* Header with gradient */}
-                    <div className="h-20 bg-gradient-to-br from-primary/20 via-accent/10 to-transparent relative">
-                      <Badge className={`absolute top-3 right-3 capitalize ${getRoleColor(user.role)}`}>
-                        {user.role}
-                      </Badge>
-                    </div>
-                    
-                    {/* Avatar */}
-                    <div className="px-4 -mt-10 relative z-10">
-                      <div className="w-20 h-20 rounded-2xl bg-secondary border-4 border-card flex items-center justify-center">
-                        {user.photo ? (
-                          <img src={user.photo} alt={user.name} className="w-full h-full object-cover rounded-2xl" />
-                        ) : (
-                          <User className="w-10 h-10 text-muted-foreground" />
-                        )}
-                      </div>
-                    </div>
-
-                    {/* Content */}
-                    <div className="p-4 pt-3">
-                      <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">
-                        {user.name}
-                      </h3>
-                      <p className="text-sm text-muted-foreground">{user.id}</p>
-
-                      <div className="mt-4 space-y-2">
-                        <div className="flex items-center gap-2 text-sm">
-                          <Mail className="w-4 h-4 text-muted-foreground" />
-                          <span className="truncate">{user.email}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Phone className="w-4 h-4 text-muted-foreground" />
-                          <span>{user.phone}</span>
-                        </div>
-                        <div className="flex items-center gap-2 text-sm">
-                          <User className="w-4 h-4 text-muted-foreground" />
-                          <span>@{user.username}</span>
-                        </div>
-                      </div>
-
-                      <div className="mt-4 flex items-center gap-1 text-xs text-muted-foreground">
-                        <Calendar className="w-3 h-3" />
-                        <span>Created {new Date(user.createdDate).toLocaleDateString()}</span>
-                      </div>
-                    </div>
+          <TabsContent value="users" className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredUsers.length === 0 ? (
+                <Card className="col-span-full glass border-border">
+                  <CardContent className="p-8 text-center">
+                    <Users className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-lg font-medium">No users found</p>
                   </CardContent>
                 </Card>
-              ))
-            )}
-          </div>
-        </TabsContent>
-
-        {/* Drivers Tab */}
-        <TabsContent value="drivers" className="mt-6">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {filteredDrivers.length === 0 ? (
-              <Card className="col-span-full glass border-border">
-                <CardContent className="p-8 text-center">
-                  <User className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                  <p className="text-lg font-medium">No drivers found</p>
-                </CardContent>
-              </Card>
-            ) : (
-              filteredDrivers.map((driver) => {
-                const assignedVehicle = driver.assignedVehicle ? getVehicleById(driver.assignedVehicle) : null;
-
-                return (
+              ) : (
+                filteredUsers.map((user) => (
                   <Card 
-                    key={driver.id} 
+                    key={user.id} 
                     className="glass border-border hover:border-primary/30 transition-all duration-300 group cursor-pointer"
-                    onClick={() => setSelectedDriver(driver)}
+                    onClick={() => setSelectedUser(user)}
                   >
                     <CardContent className="p-0">
                       {/* Header with gradient */}
                       <div className="h-20 bg-gradient-to-br from-primary/20 via-accent/10 to-transparent relative">
-                        <Badge className={`absolute top-3 right-3 capitalize ${getDriverStatusColor(driver.status)}`}>
-                          {driver.status.replace('-', ' ')}
+                        <Badge className={`absolute top-3 right-3 capitalize ${getRoleColor(user.role)}`}>
+                          {user.role}
                         </Badge>
                       </div>
                       
                       {/* Avatar */}
                       <div className="px-4 -mt-10 relative z-10">
-                        <div className="w-20 h-20 rounded-2xl bg-secondary border-4 border-card flex items-center justify-center">
-                          <User className="w-10 h-10 text-muted-foreground" />
+                        <div className="w-20 h-20 rounded-2xl bg-secondary border-4 border-card flex items-center justify-center overflow-hidden">
+                          {user.photo ? (
+                            <img src={`http://localhost:8080${user.photo}`} alt={user.name} className="w-full h-full object-cover rounded-2xl" />
+                          ) : (
+                            <User className="w-10 h-10 text-muted-foreground" />
+                          )}
                         </div>
                       </div>
 
                       {/* Content */}
                       <div className="p-4 pt-3">
                         <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">
-                          {driver.name}
+                          {user.name}
                         </h3>
-                        <p className="text-sm text-muted-foreground">{driver.id}</p>
+                        <p className="text-sm text-muted-foreground">{user.id}</p>
 
                         <div className="mt-4 space-y-2">
                           <div className="flex items-center gap-2 text-sm">
                             <Mail className="w-4 h-4 text-muted-foreground" />
-                            <span className="truncate">{driver.email}</span>
+                            <span className="truncate">{user.email}</span>
                           </div>
                           <div className="flex items-center gap-2 text-sm">
                             <Phone className="w-4 h-4 text-muted-foreground" />
-                            <span>{driver.phone}</span>
+                            <span>{user.phone}</span>
                           </div>
                           <div className="flex items-center gap-2 text-sm">
-                            <Award className="w-4 h-4 text-muted-foreground" />
-                            <span>{driver.licenseNumber}</span>
+                            <User className="w-4 h-4 text-muted-foreground" />
+                            <span>@{user.username}</span>
                           </div>
                         </div>
-
-                        {/* Stats */}
-                        <div className="grid grid-cols-2 gap-2 mt-4">
-                          <div className="p-2 rounded-lg bg-secondary text-center">
-                            <p className="text-lg font-bold text-primary">{driver.totalTrips}</p>
-                            <p className="text-xs text-muted-foreground">Trips</p>
-                          </div>
-                          <div className="p-2 rounded-lg bg-secondary text-center">
-                            <div className="flex items-center justify-center gap-1">
-                              <Star className="w-4 h-4 text-warning fill-warning" />
-                              <span className="text-lg font-bold">{driver.rating}</span>
-                            </div>
-                            <p className="text-xs text-muted-foreground">Rating</p>
-                          </div>
-                        </div>
-
-                        {/* Assigned Vehicle */}
-                        {assignedVehicle && (
-                          <div className="mt-4 p-3 rounded-lg bg-primary/10 border border-primary/20">
-                            <p className="text-xs text-primary mb-1">Assigned Vehicle</p>
-                            <div className="flex items-center gap-2">
-                              <span className="text-lg">{getVehicleTypeIcon(assignedVehicle.type)}</span>
-                              <div>
-                                <p className="font-medium text-sm">{assignedVehicle.plateNumber}</p>
-                                <p className="text-xs text-muted-foreground">{assignedVehicle.model}</p>
-                              </div>
-                            </div>
-                          </div>
-                        )}
 
                         <div className="mt-4 flex items-center gap-1 text-xs text-muted-foreground">
                           <Calendar className="w-3 h-3" />
-                          <span>Joined {new Date(driver.joinedDate).toLocaleDateString()}</span>
+                          <span>Created {new Date(user.createdDate).toLocaleDateString()}</span>
                         </div>
                       </div>
                     </CardContent>
                   </Card>
-                );
-              })
-            )}
-          </div>
-        </TabsContent>
+                ))
+              )}
+            </div>
+          </TabsContent>
+
+          {/* Drivers Tab */}
+          <TabsContent value="drivers" className="mt-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredDrivers.length === 0 ? (
+                <Card className="col-span-full glass border-border">
+                  <CardContent className="p-8 text-center">
+                    <User className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                    <p className="text-lg font-medium">No drivers found</p>
+                  </CardContent>
+                </Card>
+              ) : (
+                filteredDrivers.map((driver) => {
+                  const assignedVehicle = driver.assignedVehicle ? getVehicleById(driver.assignedVehicle) : null;
+
+                  return (
+                    <Card 
+                      key={driver.id} 
+                      className="glass border-border hover:border-primary/30 transition-all duration-300 group cursor-pointer"
+                      onClick={() => setSelectedDriver(driver)}
+                    >
+                      <CardContent className="p-0">
+                        {/* Header with gradient */}
+                        <div className="h-20 bg-gradient-to-br from-primary/20 via-accent/10 to-transparent relative">
+                          <Badge className={`absolute top-3 right-3 capitalize ${getDriverStatusColor(driver.status)}`}>
+                            {driver.status.replace('-', ' ')}
+                          </Badge>
+                        </div>
+                        
+                        {/* Avatar - NOW SHOWS PHOTO EXACTLY LIKE USERS TAB */}
+                        <div className="px-4 -mt-10 relative z-10">
+                          <div className="w-20 h-20 rounded-2xl bg-secondary border-4 border-card flex items-center justify-center overflow-hidden">
+                            {driver.photo ? (
+                              <img src={`http://localhost:8080${driver.photo}`} alt={driver.name} className="w-full h-full object-cover rounded-2xl" />
+                            ) : (
+                              <User className="w-10 h-10 text-muted-foreground" />
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Content */}
+                        <div className="p-4 pt-3">
+                          <h3 className="font-semibold text-lg group-hover:text-primary transition-colors">
+                            {driver.name}
+                          </h3>
+                          <p className="text-sm text-muted-foreground">{driver.id}</p>
+
+                          <div className="mt-4 space-y-2">
+                            <div className="flex items-center gap-2 text-sm">
+                              <Mail className="w-4 h-4 text-muted-foreground" />
+                              <span className="truncate">{driver.email}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <Phone className="w-4 h-4 text-muted-foreground" />
+                              <span>{driver.phone}</span>
+                            </div>
+                            <div className="flex items-center gap-2 text-sm">
+                              <Award className="w-4 h-4 text-muted-foreground" />
+                              <span>{driver.licenseNumber}</span>
+                            </div>
+                          </div>
+
+                          {/* Stats */}
+                          <div className="grid grid-cols-2 gap-2 mt-4">
+                            <div className="p-2 rounded-lg bg-secondary text-center">
+                              <p className="text-lg font-bold text-primary">{driver.totalTrips}</p>
+                              <p className="text-xs text-muted-foreground">Trips</p>
+                            </div>
+                            <div className="p-2 rounded-lg bg-secondary text-center">
+                              <div className="flex items-center justify-center gap-1">
+                                <Star className="w-4 h-4 text-warning fill-warning" />
+                                <span className="text-lg font-bold">{driver.rating}</span>
+                              </div>
+                              <p className="text-xs text-muted-foreground">Rating</p>
+                            </div>
+                          </div>
+
+                          {/* Assigned Vehicle */}
+                          {assignedVehicle && (
+                            <div className="mt-4 p-3 rounded-lg bg-primary/10 border border-primary/20">
+                              <p className="text-xs text-primary mb-1">Assigned Vehicle</p>
+                              <div className="flex items-center gap-2">
+                                <span className="text-lg">{getVehicleTypeIcon(assignedVehicle.type)}</span>
+                                <div>
+                                  <p className="font-medium text-sm">{assignedVehicle.plateNumber}</p>
+                                  <p className="text-xs text-muted-foreground">{assignedVehicle.model}</p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          <div className="mt-4 flex items-center gap-1 text-xs text-muted-foreground">
+                            <Calendar className="w-3 h-3" />
+                            <span>Joined {new Date(driver.joinedDate).toLocaleDateString()}</span>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })
+              )}
+            </div>
+          </TabsContent>
 
         {/* Vehicles Tab */}
         <TabsContent value="vehicles" className="mt-6">
