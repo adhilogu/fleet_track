@@ -1,0 +1,5 @@
+fleet_track/target/
+
+# React / Vite
+node_modules/
+dist/
