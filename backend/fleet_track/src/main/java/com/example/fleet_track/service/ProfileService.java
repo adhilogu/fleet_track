@@ -218,15 +218,13 @@ public class ProfileService {
             driverMap.put("assignedVehicle", "VEH" + String.format("%03d", vehicle.getId()));
         }
 
-        // ADD THIS LINE
-
-
         return driverMap;
     }
 
     /**
      * Map Vehicle to response
      */
+
     private Map<String, Object> mapVehicleToResponse(Vehicle vehicle) {
         Map<String, Object> vehicleMap = new HashMap<>();
         vehicleMap.put("id", "VEH" + String.format("%03d", vehicle.getId()));
