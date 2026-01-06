@@ -37,13 +37,13 @@ public class Vehicle {
     private VehicleType type;
 
     @Column(nullable = false)
-    private int capacity;
+    private Integer capacity;
 
     @Column(nullable = false)
-    private float fuelLevel = 100.0f;
+    private Float fuelLevel = 100.0f;
 
     @Column(nullable = false)
-    private float mileage = 0.0f;
+    private Float mileage = 0.0f;
 
     @Column(nullable = false)
     private String currentLocation = "Depot";

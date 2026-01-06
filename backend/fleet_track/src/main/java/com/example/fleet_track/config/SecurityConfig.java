@@ -45,14 +45,18 @@ public class SecurityConfig {
                         .requestMatchers("/uploads/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
 
+                        // Assignments endpoints - all methods require authentication
+                        .requestMatchers("/api/assignments/**").authenticated()
+
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .requestMatchers("/api/driver/**").hasRole("DRIVER")
+                        
+                        .requestMatchers(HttpMethod.POST, "/api/services").hasRole("ADMIN")
                         .requestMatchers("/api/services/**").authenticated()
 
                         .requestMatchers("/api/v1/profiles/create").hasRole("ADMIN")
                         .requestMatchers("/api/v1/profiles/**").hasRole("ADMIN")
 
-                        .requestMatchers(HttpMethod.POST, "/api/services").hasRole("ADMIN")
                         .requestMatchers("/api/vehicles/**").authenticated()
 
                         .requestMatchers("/api/**").authenticated()
@@ -61,7 +65,10 @@ public class SecurityConfig {
                 .sessionManagement(session -> session
                         .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
                 )
+
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
+        http.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
+
 
         return http.build();
     }

@@ -183,26 +183,24 @@ public class ProfileService {
 
     private Map<String, Object> mapUserToResponse(User user) {
         Map<String, Object> userMap = new HashMap<>();
-        userMap.put("id", "USR" + String.format("%03d", user.getId()));
+
+        userMap.put("id", user.getId());                 // ✅ RAW ID
         userMap.put("name", user.getName());
         userMap.put("email", user.getMailId());
         userMap.put("phone", user.getPhoneNumber());
         userMap.put("username", user.getUsername());
         userMap.put("role", user.getRole().name().toLowerCase());
         userMap.put("createdDate", new Date().toString());
-
-        // ADD THIS LINE
-        userMap.put("photo", user.getProfilePhoto()); // null if no photo
+        userMap.put("status", user.getStatus().name().toLowerCase());
+        userMap.put("photo", user.getProfilePhoto());   // null if no photo
 
         return userMap;
     }
 
-    /**
-     * Map User to Driver response (for Drivers tab)
-     */
     private Map<String, Object> mapDriverToResponse(User driver) {
         Map<String, Object> driverMap = new HashMap<>();
-        driverMap.put("id", "DRV" + String.format("%03d", driver.getId()));
+
+        driverMap.put("id", driver.getId());
         driverMap.put("name", driver.getName());
         driverMap.put("email", driver.getMailId());
         driverMap.put("phone", driver.getPhoneNumber());
@@ -211,40 +209,41 @@ public class ProfileService {
         driverMap.put("totalTrips", driver.getTotalTrips());
         driverMap.put("rating", driver.getRatings());
         driverMap.put("joinedDate", new Date().toString());
-        driverMap.put("photo", driver.getProfilePhoto()); // null if no photo
+        driverMap.put("photo", driver.getProfilePhoto());
 
+        // FIXED: Changed from assignedVehicleId to assignedVehicle
         if (driver.getAssignedVehicles() != null && !driver.getAssignedVehicles().isEmpty()) {
             Vehicle vehicle = driver.getAssignedVehicles().iterator().next();
-            driverMap.put("assignedVehicle", "VEH" + String.format("%03d", vehicle.getId()));
+            driverMap.put("assignedVehicle", vehicle.getId()); // ✅ CHANGED KEY NAME
         }
 
         return driverMap;
     }
 
-    /**
-     * Map Vehicle to response
-     */
-
     private Map<String, Object> mapVehicleToResponse(Vehicle vehicle) {
         Map<String, Object> vehicleMap = new HashMap<>();
-        vehicleMap.put("id", "VEH" + String.format("%03d", vehicle.getId()));
+
+        vehicleMap.put("id", vehicle.getId());
         vehicleMap.put("name", vehicle.getVehicleName());
         vehicleMap.put("plateNumber", vehicle.getRegistrationNumber());
         vehicleMap.put("model", vehicle.getModel() != null ? vehicle.getModel() : "Unknown Model");
         vehicleMap.put("type", vehicle.getType().name().toLowerCase());
         vehicleMap.put("capacity", vehicle.getCapacity());
         vehicleMap.put("status", vehicle.getStatus().name().toLowerCase().replace("_", "-"));
-        vehicleMap.put("lastServiceDate", vehicle.getLastServiceDate() != null ? vehicle.getLastServiceDate().toString() : "-");
-        vehicleMap.put("nextServiceDate", vehicle.getNextServiceDate() != null ? vehicle.getNextServiceDate().toString() : "-");
+        vehicleMap.put("lastServiceDate",
+                vehicle.getLastServiceDate() != null ? vehicle.getLastServiceDate().toString() : "-");
+        vehicleMap.put("nextServiceDate",
+                vehicle.getNextServiceDate() != null ? vehicle.getNextServiceDate().toString() : "-");
 
-        // Get assigned driver if any - FIXED: use correct field name
+        // FIXED: Changed from assignedDriverId to assignedDriver
         if (vehicle.getAssignedDrivers() != null && !vehicle.getAssignedDrivers().isEmpty()) {
             User driver = vehicle.getAssignedDrivers().iterator().next();
-            vehicleMap.put("assignedDriver", "DRV" + String.format("%03d", driver.getId()));
+            vehicleMap.put("assignedDriver", driver.getId()); // ✅ CHANGED KEY NAME
         }
 
         return vehicleMap;
     }
+
 
     public Map<String, Object> createVehicle(
             String vehicleName,
@@ -327,6 +326,192 @@ public class ProfileService {
         response.put("vehicleName", savedVehicle.getVehicleName());
         response.put("registrationNumber", savedVehicle.getRegistrationNumber());
 
+        return response;
+    }
+
+    // ==================== UPDATE METHODS ====================
+
+    public Map<String, Object> updateUser(Long id, Map<String, String> request) {
+        Map<String, Object> response = new HashMap<>();
+
+        Optional<User> userOpt = userRepository.findById(id);
+        if (!userOpt.isPresent()) {
+            response.put("success", false);
+            response.put("message", "User not found");
+            return response;
+        }
+
+        User user = userOpt.get();
+
+        if (request.containsKey("name")) user.setName(request.get("name"));
+        if (request.containsKey("mailId")) user.setMailId(request.get("mailId"));
+        if (request.containsKey("phoneNumber")) user.setPhoneNumber(request.get("phoneNumber"));
+        if (request.containsKey("username")) user.setUsername(request.get("username"));
+
+        if (request.containsKey("role")) {
+            try {
+                User.UserRole role = User.UserRole.valueOf(request.get("role").toUpperCase());
+                user.setRole(role);
+            } catch (IllegalArgumentException e) {
+                response.put("success", false);
+                response.put("message", "Invalid role");
+                return response;
+            }
+        }
+
+        userRepository.save(user);
+
+        response.put("success", true);
+        response.put("message", "User updated successfully");
+        return response;
+    }
+
+    public Map<String, Object> updateDriver(Long id, Map<String, String> request) {
+        Map<String, Object> response = new HashMap<>();
+
+        Optional<User> driverOpt = userRepository.findById(id);
+        if (!driverOpt.isPresent() || driverOpt.get().getRole() != User.UserRole.DRIVER) {
+            response.put("success", false);
+            response.put("message", "Driver not found");
+            return response;
+        }
+
+        User driver = driverOpt.get();
+
+        if (request.containsKey("name")) driver.setName(request.get("name"));
+        if (request.containsKey("mailId")) driver.setMailId(request.get("mailId"));
+        if (request.containsKey("phoneNumber")) driver.setPhoneNumber(request.get("phoneNumber"));
+
+        if (request.containsKey("status")) {
+            try {
+                User.UserStatus status = User.UserStatus.valueOf(request.get("status").toUpperCase().replace("-", "_"));
+                driver.setStatus(status);
+            } catch (IllegalArgumentException e) {
+                response.put("success", false);
+                response.put("message", "Invalid status");
+                return response;
+            }
+        }
+
+        userRepository.save(driver);
+
+        response.put("success", true);
+        response.put("message", "Driver updated successfully");
+        return response;
+    }
+
+    public Map<String, Object> updateVehicle(Long id, Map<String, String> request) {
+        Map<String, Object> response = new HashMap<>();
+
+        Optional<Vehicle> vehicleOpt = vehicleRepository.findById(id);
+        if (!vehicleOpt.isPresent()) {
+            response.put("success", false);
+            response.put("message", "Vehicle not found");
+            return response;
+        }
+
+        Vehicle vehicle = vehicleOpt.get();
+
+        if (request.containsKey("vehicleName")) vehicle.setVehicleName(request.get("vehicleName"));
+        if (request.containsKey("registrationNumber")) vehicle.setRegistrationNumber(request.get("registrationNumber"));
+        if (request.containsKey("model")) vehicle.setModel(request.get("model"));
+
+        if (request.containsKey("type")) {
+            try {
+                Vehicle.VehicleType type = Vehicle.VehicleType.valueOf(request.get("type").toUpperCase());
+                vehicle.setType(type);
+            } catch (IllegalArgumentException e) {
+                response.put("success", false);
+                response.put("message", "Invalid vehicle type");
+                return response;
+            }
+        }
+
+        if (request.containsKey("capacity")) {
+            try {
+                vehicle.setCapacity(Integer.parseInt(request.get("capacity")));
+            } catch (NumberFormatException e) {
+                response.put("success", false);
+                response.put("message", "Invalid capacity");
+                return response;
+            }
+        }
+
+        if (request.containsKey("status")) {
+            try {
+                Vehicle.VehicleStatus status = Vehicle.VehicleStatus.valueOf(
+                        request.get("status").toUpperCase().replace("-", "_")
+                );
+                vehicle.setStatus(status);
+            } catch (IllegalArgumentException e) {
+                response.put("success", false);
+                response.put("message", "Invalid status");
+                return response;
+            }
+        }
+
+        if (request.containsKey("lastServiceDate")) {
+            vehicle.setLastServiceDate(LocalDate.parse(request.get("lastServiceDate")));
+        }
+        if (request.containsKey("nextServiceDate")) {
+            vehicle.setNextServiceDate(LocalDate.parse(request.get("nextServiceDate")));
+        }
+
+        vehicleRepository.save(vehicle);
+
+        response.put("success", true);
+        response.put("message", "Vehicle updated successfully");
+        return response;
+    }
+
+// ==================== DELETE METHODS ====================
+
+    public Map<String, Object> deleteUser(Long id) {
+        Map<String, Object> response = new HashMap<>();
+
+        if (!userRepository.existsById(id)) {
+            response.put("success", false);
+            response.put("message", "User not found");
+            return response;
+        }
+
+        userRepository.deleteById(id);
+
+        response.put("success", true);
+        response.put("message", "User deleted successfully");
+        return response;
+    }
+
+    public Map<String, Object> deleteDriver(Long id) {
+        Map<String, Object> response = new HashMap<>();
+
+        Optional<User> driverOpt = userRepository.findById(id);
+        if (!driverOpt.isPresent() || driverOpt.get().getRole() != User.UserRole.DRIVER) {
+            response.put("success", false);
+            response.put("message", "Driver not found");
+            return response;
+        }
+
+        userRepository.deleteById(id);
+
+        response.put("success", true);
+        response.put("message", "Driver deleted successfully");
+        return response;
+    }
+
+    public Map<String, Object> deleteVehicle(Long id) {
+        Map<String, Object> response = new HashMap<>();
+
+        if (!vehicleRepository.existsById(id)) {
+            response.put("success", false);
+            response.put("message", "Vehicle not found");
+            return response;
+        }
+
+        vehicleRepository.deleteById(id);
+
+        response.put("success", true);
+        response.put("message", "Vehicle deleted successfully");
         return response;
     }
 }

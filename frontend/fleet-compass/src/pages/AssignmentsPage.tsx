@@ -42,10 +42,32 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
-import axios from 'axios';
 import 'leaflet/dist/leaflet.css';
+import axios from 'axios';
 
 const API_BASE_URL = 'http://localhost:8080/api';
+
+// Axios instance with auth
+const api = axios.create({
+  baseURL: API_BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+api.interceptors.request.use((config) => {
+  const authToken = localStorage.getItem('jwt_token');
+  const csrfToken = localStorage.getItem('csrf_token');
+
+  if (authToken) {
+    config.headers.Authorization = `Bearer ${authToken}`;
+  }
+  if (csrfToken) {
+    config.headers['X-CSRF-TOKEN'] = csrfToken;
+    config.headers['X-Requested-With'] = 'XMLHttpRequest';
+  }
+  return config;
+});
 
 // Fix Leaflet default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -131,7 +153,7 @@ const LocationPicker: React.FC<{
         >
           <TileLayer
             url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-            attribution='&copy; OpenStreetMap contributors'
+            attribution="&copy; OpenStreetMap contributors"
           />
           <Marker position={markerPosition} />
           <MapClickHandler />
@@ -146,9 +168,8 @@ const LocationPicker: React.FC<{
 
 const AssignmentsPage: React.FC = () => {
   const { user } = useAuth();
-  const { toast } = useToast();
   const isAdmin = user?.role === 'ADMIN';
-  
+  const { toast } = useToast();  
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -176,74 +197,48 @@ const AssignmentsPage: React.FC = () => {
     endTime: '',
   });
 
-  const [selectedVehicleDetails, setSelectedVehicleDetails] = useState<{ 
-    id: number;
-    name: string; 
-    reg: string;
-    model?: string;
-  } | null>(null);
-
   // Fetch data on mount
   useEffect(() => {
     fetchAllData();
   }, []);
 
-  const getAuthHeaders = () => {
-    const authToken = localStorage.getItem('jwt_token');
-    console.log('🔑 Token status:', authToken ? 'Found' : 'Not found');
-    
-    if (authToken) {
-      return {
-        headers: {
-          'Authorization': `Bearer ${authToken}`,
-          'Content-Type': 'application/json'
-        }
-      };
-    }
-    return {
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    };
-  };
-
   const fetchAllData = async () => {
     setLoading(true);
     try {
-      const config = getAuthHeaders();
-
-      // Fetch assignments
-      let assignmentsData = [];
+      // Assignments
+      let assignmentsData: any[] = [];
       try {
-        const assignmentsRes = await axios.get(`${API_BASE_URL}/assignments`, config);
-        assignmentsData = Array.isArray(assignmentsRes.data) ? assignmentsRes.data : [];
+        const res = await api.get('/assignments');
+        const data = res.data;
+        assignmentsData = Array.isArray(data) ? data : [];
         console.log('✅ Assignments loaded:', assignmentsData.length);
-      } catch (error: any) {
-        console.error('❌ Error fetching assignments:', error);
-        if (error.response?.status === 401 || error.response?.status === 403) {
+      } catch (err: any) {
+        const status = err.response?.status;
+        if (status === 401 || status === 403) {
           toast({
-            title: 'Authentication Required',
-            description: 'Please log in to view assignments',
+            title: 'Login required',
+            description: 'Your session has expired. Please log in again.',
             variant: 'destructive',
           });
+        } else {
+          console.error('❌ Error fetching assignments:', err);
         }
       }
 
-      // Fetch vehicles with proper data extraction
-      let vehiclesData = [];
+      // Vehicles
+      let vehiclesData: any[] = [];
       try {
-        const vehiclesRes = await axios.get(`${API_BASE_URL}/v1/profiles/vehicles`, config);
-        console.log('🚗 Raw vehicles response:', vehiclesRes.data);
-        
-        // Handle different API response formats
-        let rawVehicles = [];
-        if (vehiclesRes.data.success && Array.isArray(vehiclesRes.data.vehicles)) {
-          rawVehicles = vehiclesRes.data.vehicles;
-        } else if (Array.isArray(vehiclesRes.data)) {
-          rawVehicles = vehiclesRes.data;
+        const res = await api.get('/v1/profiles/vehicles');
+        const data = res.data;
+        console.log('🚗 Raw vehicles response:', data);
+
+        let rawVehicles: any[] = [];
+        if (data.success && Array.isArray(data.vehicles)) {
+          rawVehicles = data.vehicles;
+        } else if (Array.isArray(data)) {
+          rawVehicles = data;
         }
-        
-        // Normalize vehicle data
+
         vehiclesData = rawVehicles.map((vehicle: any) => ({
           id: vehicle.id,
           vehicleName: vehicle.vehicleName || vehicle.name || 'Unknown Vehicle',
@@ -258,33 +253,25 @@ const AssignmentsPage: React.FC = () => {
           lastServiceDate: vehicle.lastServiceDate,
           nextServiceDate: vehicle.nextServiceDate,
         }));
-        
         console.log('✅ Processed vehicles:', vehiclesData.length);
-        console.log('📊 Vehicle details:', vehiclesData.map(v => ({
-          id: v.id,
-          name: v.vehicleName,
-          reg: v.registrationNumber
-        })));
-        
-      } catch (error: any) {
-        console.error('❌ Error fetching vehicles:', error);
+      } catch (err) {
+        console.error('❌ Error fetching vehicles:', err);
       }
 
-      // Fetch drivers with proper data extraction
-      let driversData = [];
+      // Drivers
+      let driversData: any[] = [];
       try {
-        const driversRes = await axios.get(`${API_BASE_URL}/v1/profiles/drivers`, config);
-        console.log('👤 Raw drivers response:', driversRes.data);
-        
-        // Handle different API response formats
-        let rawDrivers = [];
-        if (driversRes.data.success && Array.isArray(driversRes.data.drivers)) {
-          rawDrivers = driversRes.data.drivers;
-        } else if (Array.isArray(driversRes.data)) {
-          rawDrivers = driversRes.data;
+        const res = await api.get('/v1/profiles/drivers');
+        const data = res.data;
+        console.log('👤 Raw drivers response:', data);
+
+        let rawDrivers: any[] = [];
+        if (data.success && Array.isArray(data.drivers)) {
+          rawDrivers = data.drivers;
+        } else if (Array.isArray(data)) {
+          rawDrivers = data;
         }
-        
-        // Normalize driver data
+
         driversData = rawDrivers.map((driver: any) => ({
           id: driver.id,
           name: driver.name || driver.username || 'Unknown Driver',
@@ -296,30 +283,23 @@ const AssignmentsPage: React.FC = () => {
           ratings: driver.ratings || 0,
           profilePhoto: driver.profilePhoto,
         }));
-        
         console.log('✅ Processed drivers:', driversData.length);
-        console.log('📊 Driver details:', driversData.map(d => ({
-          id: d.id,
-          name: d.name,
-          phone: d.phoneNumber
-        })));
-        
       } catch (error: any) {
         console.error('❌ Error fetching drivers:', error);
         
         // Fallback to users endpoint
         try {
-          const usersRes = await axios.get(`${API_BASE_URL}/v1/profiles/users`, config);
-          console.log('👥 Raw users response:', usersRes.data);
-          
-          let rawUsers = [];
-          if (usersRes.data.success && Array.isArray(usersRes.data.users)) {
-            rawUsers = usersRes.data.users;
-          } else if (Array.isArray(usersRes.data)) {
-            rawUsers = usersRes.data;
+          const usersRes = await api.get('/v1/profiles/users');
+          const data = usersRes.data;
+          console.log('👥 Raw users response:', data);
+
+          let rawUsers: any[] = [];
+          if (data.success && Array.isArray(data.users)) {
+            rawUsers = data.users;
+          } else if (Array.isArray(data)) {
+            rawUsers = data;
           }
-          
-          // Filter and normalize driver users
+
           driversData = rawUsers
             .filter((u: any) => u.role === 'DRIVER')
             .map((driver: any) => ({
@@ -333,7 +313,6 @@ const AssignmentsPage: React.FC = () => {
               ratings: driver.ratings || 0,
               profilePhoto: driver.profilePhoto,
             }));
-          
           console.log('✅ Drivers from users (filtered):', driversData.length);
         } catch (fallbackError) {
           console.error('❌ Error fetching users from fallback:', fallbackError);
@@ -348,8 +327,6 @@ const AssignmentsPage: React.FC = () => {
         assignments: assignmentsData.length,
         vehicles: vehiclesData.length,
         drivers: driversData.length,
-        activeVehicles: vehiclesData.filter((v: any) => v.status === 'ACTIVE').length,
-        activeDrivers: driversData.filter((d: any) => d.status === 'ACTIVE').length,
       });
 
       if (driversData.length === 0) {
@@ -379,35 +356,6 @@ const AssignmentsPage: React.FC = () => {
     }
   };
 
-  // Filter active vehicles and drivers
-  const activeVehicles = vehicles.filter(v => {
-    const status = typeof v.status === 'string' 
-      ? v.status.toUpperCase().replace('-', '_')
-      : v.status;
-    return status === 'ACTIVE';
-  });
-
-  const activeDrivers = drivers.filter(d => {
-    const status = typeof d.status === 'string'
-      ? d.status.toUpperCase().replace('-', '_')
-      : d.status;
-    const role = typeof d.role === 'string'
-      ? d.role.toUpperCase()
-      : d.role;
-    return status === 'ACTIVE' && role === 'DRIVER';
-  });
-
-  const filteredSchedules = schedules.filter((schedule) => {
-    const matchesSearch = 
-      schedule.assignmentName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      schedule.startLocation?.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      schedule.dropLocation?.toLowerCase().includes(searchQuery.toLowerCase());
-    
-    const matchesStatus = statusFilter === 'all' || schedule.status === statusFilter.toUpperCase().replace('-', '_');
-    
-    return matchesSearch && matchesStatus;
-  });
-
   const resetForm = () => {
     setFormData({
       vehicleId: '',
@@ -422,7 +370,6 @@ const AssignmentsPage: React.FC = () => {
       startTime: '',
       endTime: '',
     });
-    setSelectedVehicleDetails(null);
   };
 
   const handleCreateSchedule = async () => {
@@ -437,9 +384,6 @@ const AssignmentsPage: React.FC = () => {
 
     setSubmitting(true);
     try {
-      const config = getAuthHeaders();
-      console.log('🚀 Creating assignment with token:', config.headers?.Authorization ? 'Present' : 'Missing');
-      
       const payload = {
         vehicle: { id: parseInt(formData.vehicleId) },
         driver: { id: parseInt(formData.driverId) },
@@ -452,14 +396,13 @@ const AssignmentsPage: React.FC = () => {
         dropLocation: formData.endAddress,
         startTime: formData.startTime,
         endTime: formData.endTime,
-        status: 'IN_PROGRESS'
+        status: 'IN_PROGRESS',
       };
 
       console.log('📝 Payload:', payload);
 
-      const response = await axios.post(`${API_BASE_URL}/assignments`, payload, config);
-      console.log('✅ Assignment created:', response.data);
-      
+      await api.post('/assignments', payload);
+
       toast({
         title: 'Success',
         description: 'Assignment created successfully',
@@ -468,14 +411,14 @@ const AssignmentsPage: React.FC = () => {
       setIsCreateDialogOpen(false);
       resetForm();
       fetchAllData();
-    } catch (error: any) {
-      console.error('❌ Error creating assignment:', error);
-      console.error('Response:', error.response);
-      
-      const errorMsg = error.response?.status === 403 
-        ? 'Authentication required. Please log in again.' 
-        : error.response?.data?.message || 'Failed to create assignment';
-        
+    } catch (err: any) {
+      const status = err.response?.status;
+      const backendMsg = err.response?.data?.message;
+      const errorMsg =
+        status === 401 || status === 403
+          ? 'Login required. Please log in again.'
+          : backendMsg || 'Failed to create assignment';
+
       toast({
         title: 'Error',
         description: errorMsg,
@@ -487,58 +430,60 @@ const AssignmentsPage: React.FC = () => {
   };
 
   const handleUpdateSchedule = async () => {
-    if (!editedSchedule || !selectedSchedule) return;
+  if (!editedSchedule || !selectedSchedule) return;
 
-    setSubmitting(true);
-    try {
-      const config = getAuthHeaders();
-      const payload = {
-        vehicle: { id: parseInt(editedSchedule.vehicleId) },
-        driver: { id: parseInt(editedSchedule.driverId) },
-        assignmentName: editedSchedule.assignmentName,
-        startLatitude: editedSchedule.startLatitude,
-        startLongitude: editedSchedule.startLongitude,
-        endLatitude: editedSchedule.endLatitude,
-        endLongitude: editedSchedule.endLongitude,
-        startLocation: editedSchedule.startAddress,
-        dropLocation: editedSchedule.endAddress,
-        startTime: editedSchedule.startTime,
-        endTime: editedSchedule.endTime,
-      };
+  setSubmitting(true);
+  try {
+    const payload = {
+      vehicle: { id: parseInt(editedSchedule.vehicleId) },
+      driver: { id: parseInt(editedSchedule.driverId) },
+      assignmentName: editedSchedule.assignmentName,
+      startLatitude: editedSchedule.startLatitude,
+      startLongitude: editedSchedule.startLongitude,
+      endLatitude: editedSchedule.endLatitude,
+      endLongitude: editedSchedule.endLongitude,
+      startLocation: editedSchedule.startAddress,
+      dropLocation: editedSchedule.endAddress,
+      startTime: editedSchedule.startTime,
+      endTime: editedSchedule.endTime,
+      status: editedSchedule.status,  
+    };
 
-      await axios.put(`${API_BASE_URL}/assignments/${selectedSchedule.id}`, payload, config);
+    await api.put(`/assignments/${selectedSchedule.id}`, payload);
 
-      toast({
-        title: 'Success',
-        description: 'Assignment updated successfully',
-      });
+    toast({
+      title: 'Success',
+      description: 'Assignment updated successfully',
+    });
 
-      setIsDetailDialogOpen(false);
-      setIsEditMode(false);
-      setEditedSchedule(null);
-      fetchAllData();
-    } catch (error: any) {
-      console.error('Error updating assignment:', error);
-      const errorMsg = error.response?.status === 403 
-        ? 'Authentication required. Please log in again.' 
-        : error.response?.data?.message || 'Failed to update assignment';
-      toast({
-        title: 'Error',
-        description: errorMsg,
-        variant: 'destructive',
-      });
-    } finally {
-      setSubmitting(false);
-    }
-  };
+    setIsDetailDialogOpen(false);
+    setIsEditMode(false);
+    setEditedSchedule(null);
+    fetchAllData();
+  } catch (err: any) {
+    const status = err.response?.status;
+    const backendMsg = err.response?.data?.message;
+    const message =
+      status === 401 || status === 403
+        ? 'Login required. Please log in again.'
+        : backendMsg || 'Failed to update assignment';
+
+    toast({
+      title: 'Update failed',
+      description: message,
+      variant: 'destructive',
+    });
+  } finally {
+    setSubmitting(false);
+  }
+};
 
   const handleDeleteSchedule = async () => {
     if (!selectedSchedule) return;
 
     setSubmitting(true);
     try {
-      const config = getAuthHeaders();
-      await axios.delete(`${API_BASE_URL}/assignments/${selectedSchedule.id}`, config);
+      await api.delete(`/assignments/${selectedSchedule.id}`);
 
       toast({
         title: 'Success',
@@ -548,14 +493,17 @@ const AssignmentsPage: React.FC = () => {
       setIsDetailDialogOpen(false);
       setSelectedSchedule(null);
       fetchAllData();
-    } catch (error: any) {
-      console.error('Error deleting assignment:', error);
-      const errorMsg = error.response?.status === 403 
-        ? 'Authentication required. Please log in again.' 
-        : error.response?.data?.message || 'Failed to delete assignment';
+    } catch (err: any) {
+      const status = err.response?.status;
+      const backendMsg = err.response?.data?.message;
+      const message =
+        status === 401 || status === 403
+          ? 'Login required. Please log in again.'
+          : backendMsg || 'Failed to delete assignment';
+
       toast({
-        title: 'Error',
-        description: errorMsg,
+        title: 'Delete failed',
+        description: message,
         variant: 'destructive',
       });
     } finally {
@@ -597,44 +545,78 @@ const AssignmentsPage: React.FC = () => {
   };
 
   const getStatusIcon = (status: string) => {
-    switch (status) {
-      case 'COMPLETED': return <CheckCircle2 className="w-4 h-4" />;
-      case 'IN_PROGRESS': return <Play className="w-4 h-4" />;
-      case 'CANCELLED': return <X className="w-4 h-4" />;
-      default: return <Clock className="w-4 h-4" />;
-    }
-  };
+  if (!status) return <Clock className="w-4 h-4" />;
+  
+  switch (status.toUpperCase()) {
+    case 'COMPLETED': return <CheckCircle2 className="w-4 h-4" />;
+    case 'IN_PROGRESS': return <Play className="w-4 h-4" />;
+    case 'CANCELLED': return <X className="w-4 h-4" />;
+    default: return <Clock className="w-4 h-4" />;
+  }
+};
 
-  const getStatusColor = (status: string) => {
-    switch (status) {
-      case 'COMPLETED': return 'bg-success/20 text-success border-success/30';
-      case 'IN_PROGRESS': return 'bg-primary/20 text-primary border-primary/30';
-      case 'CANCELLED': return 'bg-destructive/20 text-destructive border-destructive/30';
-      default: return 'bg-warning/20 text-warning border-warning/30';
-    }
-  };
+const getStatusColor = (status: string) => {
+  if (!status) return 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30';
+  
+  switch (status.toUpperCase()) {
+    case 'COMPLETED': return 'bg-green-500/20 text-green-500 border-green-500/30';
+    case 'IN_PROGRESS': return 'bg-blue-500/20 text-blue-500 border-blue-500/30';
+    case 'CANCELLED': return 'bg-red-500/20 text-red-500 border-red-500/30';
+    default: return 'bg-yellow-500/20 text-yellow-500 border-yellow-500/30';
+  }
+};
 
   const getStatusLabel = (status: string) => {
+    if (!status) return 'pending';
     return status.toLowerCase().replace('_', ' ');
   };
 
+  // Filter active vehicles and drivers
+  const activeVehicles = vehicles.filter(v => {
+    const status = typeof v.status === 'string' 
+      ? v.status.toUpperCase().replace('-', '_')
+      : v.status;
+    return status === 'ACTIVE';
+  });
+
+  const activeDrivers = drivers.filter(d => {
+    const status = typeof d.status === 'string'
+      ? d.status.toUpperCase().replace('-', '_')
+      : d.status;
+    const role = typeof d.role === 'string'
+      ? d.role.toUpperCase()
+      : d.role;
+    return status === 'ACTIVE' && role === 'DRIVER';
+  });
+
+  const filteredSchedules = schedules.filter((schedule) => {
+    const matchesSearch = 
+      schedule.assignmentName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      schedule.startLocation?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      schedule.dropLocation?.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    const matchesStatus = statusFilter === 'all' || schedule.status === statusFilter.toUpperCase().replace('-', '_');
+    
+    return matchesSearch && matchesStatus;
+  });
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="flex items-center justify-center h-full min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
       </div>
     );
   }
-  
+
   return (
-    <div className="p-6 space-y-6 animate-fade-in">
+    <div className="p-6 space-y-6">
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold">
             {isAdmin ? 'Assignments & Schedules' : 'My Assignments'}
           </h1>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-gray-600 mt-1">
             {isAdmin ? 'Manage and monitor all fleet schedules' : 'View your assigned routes and schedules'}
           </p>
         </div>
@@ -644,12 +626,12 @@ const AssignmentsPage: React.FC = () => {
             if (!open) resetForm();
           }}>
             <DialogTrigger asChild>
-              <Button className="bg-primary hover:bg-primary/90">
+              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
                 <Plus className="w-4 h-4 mr-2" />
                 Create Assignment
               </Button>
             </DialogTrigger>
-            <DialogContent className="glass-strong border-border max-w-3xl max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Create New Assignment</DialogTitle>
               </DialogHeader>
@@ -661,26 +643,26 @@ const AssignmentsPage: React.FC = () => {
                       value={formData.vehicleId}
                       onValueChange={(value) => setFormData({ ...formData, vehicleId: value })}
                     >
-                      <SelectTrigger className="bg-secondary border-border">
+                      <SelectTrigger>
                         <SelectValue placeholder="Select active vehicle" />
                       </SelectTrigger>
                       <SelectContent>
                         {activeVehicles.map((vehicle) => (
                           <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
-                          <div className="flex items-center gap-2">
-                            <Truck className="w-4 h-4" />
-                            <span className="font-medium">ID: {vehicle.id}</span>
-                            <span>•</span>
-                            <span>{vehicle.vehicleName || 'N/A'}</span>
-                            <span>•</span>
-                            <span className="text-muted-foreground">{vehicle.registrationNumber}</span>
-                          </div>
-                        </SelectItem>
+                            <div className="flex items-center gap-2">
+                              <Truck className="w-4 h-4" />
+                              <span className="font-medium">ID: {vehicle.id}</span>
+                              <span>•</span>
+                              <span>{vehicle.vehicleName || 'N/A'}</span>
+                              <span>•</span>
+                              <span className="text-gray-600">{vehicle.registrationNumber}</span>
+                            </div>
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                     {activeVehicles.length === 0 && (
-                      <p className="text-xs text-destructive">No active vehicles available</p>
+                      <p className="text-xs text-red-500">No active vehicles available</p>
                     )}
                   </div>
                   <div className="space-y-2">
@@ -689,7 +671,7 @@ const AssignmentsPage: React.FC = () => {
                       value={formData.driverId}
                       onValueChange={(value) => setFormData({ ...formData, driverId: value })}
                     >
-                      <SelectTrigger className="bg-secondary border-border">
+                      <SelectTrigger>
                         <SelectValue placeholder="Select active driver" />
                       </SelectTrigger>
                       <SelectContent>
@@ -701,14 +683,14 @@ const AssignmentsPage: React.FC = () => {
                               <span>•</span>
                               <span>{driver.name}</span>
                               <span>•</span>
-                              <span className="text-muted-foreground text-xs">{driver.phoneNumber}</span>
+                              <span className="text-gray-600 text-xs">{driver.phoneNumber}</span>
                             </div>
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                     {activeDrivers.length === 0 && (
-                      <p className="text-xs text-destructive">No active drivers available</p>
+                      <p className="text-xs text-red-500">No active drivers available</p>
                     )}
                   </div>
                 </div>
@@ -719,7 +701,6 @@ const AssignmentsPage: React.FC = () => {
                     placeholder="e.g., Downtown Express Route A"
                     value={formData.assignmentName}
                     onChange={(e) => setFormData({ ...formData, assignmentName: e.target.value })}
-                    className="bg-secondary border-border"
                   />
                 </div>
 
@@ -745,9 +726,8 @@ const AssignmentsPage: React.FC = () => {
                       placeholder="Start location address"
                       value={formData.startAddress}
                       onChange={(e) => setFormData({ ...formData, startAddress: e.target.value })}
-                      className="bg-secondary border-border"
                     />
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-xs text-gray-500">
                       Coordinates: {formData.startLatitude.toFixed(6)}, {formData.startLongitude.toFixed(6)}
                     </div>
                   </TabsContent>
@@ -768,9 +748,8 @@ const AssignmentsPage: React.FC = () => {
                       placeholder="End location address"
                       value={formData.endAddress}
                       onChange={(e) => setFormData({ ...formData, endAddress: e.target.value })}
-                      className="bg-secondary border-border"
                     />
-                    <div className="text-xs text-muted-foreground">
+                    <div className="text-xs text-gray-500">
                       Coordinates: {formData.endLatitude.toFixed(6)}, {formData.endLongitude.toFixed(6)}
                     </div>
                   </TabsContent>
@@ -945,331 +924,388 @@ const AssignmentsPage: React.FC = () => {
 
       {/* Detail Dialog */}
       <Dialog open={isDetailDialogOpen} onOpenChange={(open) => {
-        setIsDetailDialogOpen(open);
-        if (!open) {
-          setIsEditMode(false);
-          setEditedSchedule(null);
-        }
-      }}>
-        <DialogContent className="glass-strong border-border max-w-3xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Assignment Details</DialogTitle>
-          </DialogHeader>
+  setIsDetailDialogOpen(open);
+  if (!open) {
+    setIsEditMode(false);
+    setEditedSchedule(null);
+  }
+}}>
+  <DialogContent className="glass-strong border-border max-w-4xl max-h-[90vh] overflow-y-auto">
+    <DialogHeader>
+      <DialogTitle>Assignment Details</DialogTitle>
+    </DialogHeader>
 
-          {selectedSchedule && (
-            <div className="space-y-6 mt-4">
-              <div className="flex items-center gap-4">
-                <div className={cn(
-                  'p-4 rounded-xl border flex items-center justify-center',
-                  getStatusColor(selectedSchedule.status)
-                )}>
-                  {getStatusIcon(selectedSchedule.status)}
-                </div>
-                <div className="flex-1">
-                  {isEditMode && editedSchedule ? (
-                    <Input
-                      value={editedSchedule.assignmentName}
-                      onChange={(e) => setEditedSchedule({ ...editedSchedule, assignmentName: e.target.value })}
-                      className="text-xl font-bold mb-2"
-                      placeholder="Assignment name"
-                    />
-                  ) : (
-                    <h3 className="text-xl font-bold">{selectedSchedule.assignmentName}</h3>
-                  )}
-                  <p className="text-sm text-muted-foreground">ID: {selectedSchedule.id}</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Label className="text-sm text-muted-foreground">Status:</Label>
-                    <Badge className={cn('capitalize', getStatusColor(selectedSchedule.status))}>
-                      {getStatusLabel(selectedSchedule.status)}
-                    </Badge>
+    {selectedSchedule && (
+      <div className="space-y-4 mt-4">
+        {/* Header Section - Compact */}
+        <div className="flex items-start gap-3 pb-4 border-b border-border">
+          <div className={cn(
+            'p-3 rounded-xl border flex items-center justify-center shrink-0',
+            getStatusColor(selectedSchedule.status)
+          )}>
+            {getStatusIcon(selectedSchedule.status)}
+          </div>
+          <div className="flex-1 min-w-0">
+            {isEditMode && editedSchedule ? (
+              <Input
+                value={editedSchedule.assignmentName}
+                onChange={(e) => setEditedSchedule({ ...editedSchedule, assignmentName: e.target.value })}
+                className="text-lg font-bold mb-1"
+                placeholder="Assignment name"
+              />
+            ) : (
+              <h3 className="text-lg font-bold truncate">{selectedSchedule.assignmentName}</h3>
+            )}
+            <p className="text-xs text-muted-foreground">ID: {selectedSchedule.id}</p>
+          </div>
+        </div>
+
+        {/* Vehicle, Driver & Status - 3 Columns */}
+        <div className="grid grid-cols-3 gap-3">
+          {/* Vehicle */}
+          <div>
+            <Label className="text-xs text-muted-foreground">Vehicle</Label>
+            {isEditMode && editedSchedule ? (
+              <Select
+                value={editedSchedule.vehicleId?.toString()}
+                onValueChange={(value) => setEditedSchedule({ ...editedSchedule, vehicleId: value })}
+              >
+                <SelectTrigger className="mt-1.5 h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeVehicles.map((vehicle) => (
+                    <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
+                      <div className="flex items-center gap-1.5 text-xs">
+                        <span className="font-medium">{vehicle.id}</span>
+                        <span>•</span>
+                        <span className="truncate">{vehicle.vehicleName || 'Unknown'}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="mt-1.5 p-2.5 rounded-lg bg-secondary border border-border">
+                <div className="flex items-center gap-2">
+                  <Truck className="w-4 h-4 text-primary shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">
+                      {getVehicleById(selectedSchedule.vehicle?.id)?.vehicleName || 'Unknown'}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {getVehicleById(selectedSchedule.vehicle?.id)?.registrationNumber}
+                    </p>
                   </div>
                 </div>
               </div>
+            )}
+          </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-muted-foreground">Vehicle</Label>
-                  {isEditMode && editedSchedule ? (
-                    <Select
-                        value={editedSchedule.vehicleId?.toString()}
-                        onValueChange={(value) => setEditedSchedule({ ...editedSchedule, vehicleId: value })}
-                      >
-                        <SelectTrigger className="mt-2 bg-secondary border-border">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {activeVehicles.map((vehicle) => (
-                            <SelectItem key={vehicle.id} value={vehicle.id.toString()}>
-                              <div className="flex items-center gap-2">
-                                <span className="font-medium">{vehicle.id}</span>
-                                <span>-</span>
-                                <span>{vehicle.vehicleName || 'Unknown'}</span>
-                                <span>-</span>
-                                <span className="text-muted-foreground">{vehicle.registrationNumber}</span>
-                              </div>
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                  ) : (
-                    <Card className="glass border-border mt-2">
-                        <CardContent className="p-4">
-                          <div className="flex items-center gap-3">
-                            <Truck className="w-8 h-8 text-primary" />
-                            <div>
-                              <p className="font-semibold">
-                                {getVehicleById(selectedSchedule.vehicle?.id)?.id} - {' '}
-                                {getVehicleById(selectedSchedule.vehicle?.id)?.vehicleName || 'Unknown Vehicle'}
-                              </p>
-                              <p className="text-xs text-muted-foreground">
-                                {getVehicleById(selectedSchedule.vehicle?.id)?.registrationNumber}
-                                {' • '}
-                                {getVehicleById(selectedSchedule.vehicle?.id)?.model}
-                              </p>
-                            </div>
-                          </div>
-                        </CardContent>
-                      </Card>
-                  )}
-                </div>
-
-                <div>
-                  <Label className="text-muted-foreground">Driver</Label>
-                  {isEditMode && editedSchedule ? (
-                    <Select
-                      value={editedSchedule.driverId?.toString()}
-                      onValueChange={(value) => setEditedSchedule({ ...editedSchedule, driverId: value })}
-                    >
-                      <SelectTrigger className="mt-2 bg-secondary border-border">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {activeDrivers.map((driver) => (
-                          <SelectItem key={driver.id} value={driver.id.toString()}>
-                            {driver.name}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  ) : (
-                    <Card className="glass border-border mt-2">
-                      <CardContent className="p-4">
-                        <div className="flex items-center gap-3">
-                          <User className="w-8 h-8 text-accent" />
-                          <div>
-                            <p className="font-semibold">
-                              {getDriverById(selectedSchedule.driver?.id)?.name}
-                            </p>
-                            <p className="text-xs text-muted-foreground">
-                              {getDriverById(selectedSchedule.driver?.id)?.phoneNumber}
-                            </p>
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  )}
-                </div>
-              </div>
-
-              <div>
-                <Label className="text-muted-foreground">Location Details</Label>
-                {isEditMode && editedSchedule ? (
-                  <div className="mt-2">
-                    <Tabs defaultValue="start" className="w-full">
-                      <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="start">Start Location</TabsTrigger>
-                        <TabsTrigger value="end">End Location</TabsTrigger>
-                      </TabsList>
-                      <TabsContent value="start" className="space-y-4">
-                        <LocationPicker
-                          position={[editedSchedule.startLatitude, editedSchedule.startLongitude]}
-                          onLocationSelect={(lat, lng, address) => 
-                            setEditedSchedule({ 
-                              ...editedSchedule, 
-                              startLatitude: lat, 
-                              startLongitude: lng,
-                              startAddress: address 
-                            })
-                          }
-                          label="Select Start Point"
-                        />
-                        <Input
-                          placeholder="Start location address"
-                          value={editedSchedule.startAddress}
-                          onChange={(e) => setEditedSchedule({ ...editedSchedule, startAddress: e.target.value })}
-                          className="bg-secondary border-border"
-                        />
-                        <div className="text-xs text-muted-foreground">
-                          Coordinates: {editedSchedule.startLatitude.toFixed(6)}, {editedSchedule.startLongitude.toFixed(6)}
-                        </div>
-                      </TabsContent>
-                      <TabsContent value="end" className="space-y-4">
-                        <LocationPicker
-                          position={[editedSchedule.endLatitude, editedSchedule.endLongitude]}
-                          onLocationSelect={(lat, lng, address) => 
-                            setEditedSchedule({ 
-                              ...editedSchedule, 
-                              endLatitude: lat, 
-                              endLongitude: lng,
-                              endAddress: address 
-                            })
-                          }
-                          label="Select End Point"
-                        />
-                        <Input
-                          placeholder="End location address"
-                          value={editedSchedule.endAddress}
-                          onChange={(e) => setEditedSchedule({ ...editedSchedule, endAddress: e.target.value })}
-                          className="bg-secondary border-border"
-                        />
-                        <div className="text-xs text-muted-foreground">
-                          Coordinates: {editedSchedule.endLatitude.toFixed(6)}, {editedSchedule.endLongitude.toFixed(6)}
-                        </div>
-                      </TabsContent>
-                    </Tabs>
+          {/* Driver */}
+          <div>
+            <Label className="text-xs text-muted-foreground">Driver</Label>
+            {isEditMode && editedSchedule ? (
+              <Select
+                value={editedSchedule.driverId?.toString()}
+                onValueChange={(value) => setEditedSchedule({ ...editedSchedule, driverId: value })}
+              >
+                <SelectTrigger className="mt-1.5 h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {activeDrivers.map((driver) => (
+                    <SelectItem key={driver.id} value={driver.id.toString()}>
+                      <span className="text-sm">{driver.name}</span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="mt-1.5 p-2.5 rounded-lg bg-secondary border border-border">
+                <div className="flex items-center gap-2">
+                  <User className="w-4 h-4 text-accent shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-medium truncate">
+                      {getDriverById(selectedSchedule.driver?.id)?.name}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">
+                      {getDriverById(selectedSchedule.driver?.id)?.phoneNumber}
+                    </p>
                   </div>
-                ) : (
-                  <div className="mt-2 space-y-3">
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary">
-                      <Navigation className="w-5 h-5 text-success mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">Start Location</p>
-                        <p className="text-sm text-muted-foreground">{selectedSchedule.startLocation}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {selectedSchedule.startLatitude?.toFixed(6)}, {selectedSchedule.startLongitude?.toFixed(6)}
-                        </p>
-                      </div>
-                    </div>
+                </div>
+              </div>
+            )}
+          </div>
 
-                    <div className="flex items-start gap-3 p-3 rounded-lg bg-secondary">
-                      <MapPin className="w-5 h-5 text-destructive mt-0.5" />
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">End Location</p>
-                        <p className="text-sm text-muted-foreground">{selectedSchedule.dropLocation}</p>
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {selectedSchedule.endLatitude?.toFixed(6)}, {selectedSchedule.endLongitude?.toFixed(6)}
-                        </p>
-                      </div>
+          {/* Status */}
+          <div>
+            <Label className="text-xs text-muted-foreground">Status</Label>
+            {isEditMode && editedSchedule ? (
+              <Select
+                value={editedSchedule.status}
+                onValueChange={(value) => setEditedSchedule({ ...editedSchedule, status: value })}
+              >
+                <SelectTrigger className="mt-1.5 h-9 text-sm">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="IN_PROGRESS">
+                    <div className="flex items-center gap-2">
+                      <Play className="w-3.5 h-3.5 text-blue-500" />
+                      <span>In Progress</span>
                     </div>
+                  </SelectItem>
+                  <SelectItem value="COMPLETED">
+                    <div className="flex items-center gap-2">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                      <span>Completed</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="CANCELLED">
+                    <div className="flex items-center gap-2">
+                      <X className="w-3.5 h-3.5 text-red-500" />
+                      <span>Cancelled</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="PENDING">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-3.5 h-3.5 text-yellow-500" />
+                      <span>Pending</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            ) : (
+              <div className="mt-1.5 flex items-center justify-center h-[42px]">
+                <Badge className={cn('capitalize', getStatusColor(selectedSchedule.status))}>
+                  <div className="flex items-center gap-1.5">
+                    {getStatusIcon(selectedSchedule.status)}
+                    <span className="text-xs">{getStatusLabel(selectedSchedule.status)}</span>
                   </div>
-                )}
+                </Badge>
               </div>
+            )}
+          </div>
+        </div>
 
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label className="text-muted-foreground">Start Time</Label>
-                  {isEditMode && editedSchedule ? (
-                    <Input
-                      type="datetime-local"
-                      value={editedSchedule.startTime}
-                      onChange={(e) => setEditedSchedule({ ...editedSchedule, startTime: e.target.value })}
-                      className="mt-2 bg-secondary border-border"
-                    />
-                  ) : (
-                    <div className="p-4 rounded-lg bg-secondary mt-2">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Clock className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                      <p className="font-semibold">
-                        {selectedSchedule.startTime ? new Date(selectedSchedule.startTime).toLocaleString() : 'N/A'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div>
-                  <Label className="text-muted-foreground">End Time</Label>
-                  {isEditMode && editedSchedule ? (
-                    <Input
-                      type="datetime-local"
-                      value={editedSchedule.endTime}
-                      onChange={(e) => setEditedSchedule({ ...editedSchedule, endTime: e.target.value })}
-                      className="mt-2 bg-secondary border-border"
-                    />
-                  ) : (
-                    <div className="p-4 rounded-lg bg-secondary mt-2">
-                      <div className="flex items-center gap-2 mb-1">
-                        <Clock className="w-4 h-4 text-muted-foreground" />
-                      </div>
-                      <p className="font-semibold">
-                        {selectedSchedule.endTime ? new Date(selectedSchedule.endTime).toLocaleString() : 'N/A'}
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex justify-between pt-4 border-t border-border">
-                <Button
-                  variant="destructive"
-                  disabled={submitting}
-                  onClick={() => {
-                    if (confirm('Are you sure you want to delete this assignment?')) {
-                      handleDeleteSchedule();
+        {/* Location Details - Compact */}
+        <div>
+          <Label className="text-xs text-muted-foreground">Route</Label>
+          {isEditMode && editedSchedule ? (
+            <div className="mt-1.5">
+              <Tabs defaultValue="start" className="w-full">
+                <TabsList className="grid w-full grid-cols-2 h-9">
+                  <TabsTrigger value="start" className="text-xs">Start Location</TabsTrigger>
+                  <TabsTrigger value="end" className="text-xs">End Location</TabsTrigger>
+                </TabsList>
+                <TabsContent value="start" className="space-y-2 mt-2">
+                  <LocationPicker
+                    position={[editedSchedule.startLatitude, editedSchedule.startLongitude]}
+                    onLocationSelect={(lat, lng, address) => 
+                      setEditedSchedule({ 
+                        ...editedSchedule, 
+                        startLatitude: lat, 
+                        startLongitude: lng,
+                        startAddress: address 
+                      })
                     }
-                  }}
-                >
-                  {submitting ? (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                  ) : (
-                    <Trash2 className="w-4 h-4 mr-2" />
-                  )}
-                  Delete Assignment
-                </Button>
-                <div className="flex gap-2">
-                  {isEditMode ? (
-                    <>
-                      <Button
-                        variant="outline"
-                        onClick={() => {
-                          setIsEditMode(false);
-                          setEditedSchedule(null);
-                        }}
-                      >
-                        Cancel
-                      </Button>
-                      <Button 
-                        onClick={handleUpdateSchedule} 
-                        disabled={submitting}
-                        className="bg-primary hover:bg-primary/90"
-                      >
-                        {submitting ? (
-                          <>
-                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                            Saving...
-                          </>
-                        ) : (
-                          'Save Changes'
-                        )}
-                      </Button>
-                    </>
-                  ) : (
-                    <Button onClick={() => {
-                      setIsEditMode(true);
-                      setEditedSchedule({
-                        vehicleId: selectedSchedule.vehicle?.id,
-                        driverId: selectedSchedule.driver?.id,
-                        assignmentName: selectedSchedule.assignmentName,
-                        startAddress: selectedSchedule.startLocation,
-                        startLatitude: selectedSchedule.startLatitude || 13.0827,
-                        startLongitude: selectedSchedule.startLongitude || 80.2707,
-                        endAddress: selectedSchedule.dropLocation,
-                        endLatitude: selectedSchedule.endLatitude || 13.0878,
-                        endLongitude: selectedSchedule.endLongitude || 80.2785,
-                        startTime: selectedSchedule.startTime,
-                        endTime: selectedSchedule.endTime,
-                      });
-                    }}>
-                      <Edit className="w-4 h-4 mr-2" />
-                      Edit Assignment
-                    </Button>
-                  )}
+                    label="Select Start Point"
+                  />
+                  <Input
+                    placeholder="Start location address"
+                    value={editedSchedule.startAddress}
+                    onChange={(e) => setEditedSchedule({ ...editedSchedule, startAddress: e.target.value })}
+                    className="text-sm h-9"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {editedSchedule.startLatitude.toFixed(6)}, {editedSchedule.startLongitude.toFixed(6)}
+                  </p>
+                </TabsContent>
+                <TabsContent value="end" className="space-y-2 mt-2">
+                  <LocationPicker
+                    position={[editedSchedule.endLatitude, editedSchedule.endLongitude]}
+                    onLocationSelect={(lat, lng, address) => 
+                      setEditedSchedule({ 
+                        ...editedSchedule, 
+                        endLatitude: lat, 
+                        endLongitude: lng,
+                        endAddress: address 
+                      })
+                    }
+                    label="Select End Point"
+                  />
+                  <Input
+                    placeholder="End location address"
+                    value={editedSchedule.endAddress}
+                    onChange={(e) => setEditedSchedule({ ...editedSchedule, endAddress: e.target.value })}
+                    className="text-sm h-9"
+                  />
+                  <p className="text-xs text-muted-foreground">
+                    {editedSchedule.endLatitude.toFixed(6)}, {editedSchedule.endLongitude.toFixed(6)}
+                  </p>
+                </TabsContent>
+              </Tabs>
+            </div>
+          ) : (
+            <div className="mt-1.5 grid grid-cols-2 gap-2">
+              <div className="flex items-start gap-2 p-2.5 rounded-lg bg-secondary border border-border">
+                <Navigation className="w-4 h-4 text-success mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium mb-0.5">Start</p>
+                  <p className="text-xs text-muted-foreground truncate">{selectedSchedule.startLocation}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {selectedSchedule.startLatitude?.toFixed(4)}, {selectedSchedule.startLongitude?.toFixed(4)}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-start gap-2 p-2.5 rounded-lg bg-secondary border border-border">
+                <MapPin className="w-4 h-4 text-destructive mt-0.5 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs font-medium mb-0.5">End</p>
+                  <p className="text-xs text-muted-foreground truncate">{selectedSchedule.dropLocation}</p>
+                  <p className="text-[10px] text-muted-foreground mt-0.5">
+                    {selectedSchedule.endLatitude?.toFixed(4)}, {selectedSchedule.endLongitude?.toFixed(4)}
+                  </p>
                 </div>
               </div>
             </div>
           )}
-        </DialogContent>
-      </Dialog>
+        </div>
+
+        {/* Time Section - 2 Columns */}
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <Label className="text-xs text-muted-foreground">Start Time</Label>
+            {isEditMode && editedSchedule ? (
+              <Input
+                type="datetime-local"
+                value={editedSchedule.startTime}
+                onChange={(e) => setEditedSchedule({ ...editedSchedule, startTime: e.target.value })}
+                className="mt-1.5 text-sm h-9"
+              />
+            ) : (
+              <div className="p-2.5 rounded-lg bg-secondary border border-border mt-1.5">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                  <p className="text-sm font-medium">
+                    {selectedSchedule.startTime ? new Date(selectedSchedule.startTime).toLocaleString([], {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    }) : 'N/A'}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div>
+            <Label className="text-xs text-muted-foreground">End Time</Label>
+            {isEditMode && editedSchedule ? (
+              <Input
+                type="datetime-local"
+                value={editedSchedule.endTime}
+                onChange={(e) => setEditedSchedule({ ...editedSchedule, endTime: e.target.value })}
+                className="mt-1.5 text-sm h-9"
+              />
+            ) : (
+              <div className="p-2.5 rounded-lg bg-secondary border border-border mt-1.5">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-3.5 h-3.5 text-muted-foreground" />
+                  <p className="text-sm font-medium">
+                    {selectedSchedule.endTime ? new Date(selectedSchedule.endTime).toLocaleString([], {
+                      month: 'short',
+                      day: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    }) : 'N/A'}
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex justify-between pt-3 border-t border-border">
+          <Button
+            variant="destructive"
+            size="sm"
+            disabled={submitting}
+            onClick={() => {
+              if (confirm('Are you sure you want to delete this assignment?')) {
+                handleDeleteSchedule();
+              }
+            }}
+          >
+            {submitting ? (
+              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+            ) : (
+              <Trash2 className="w-4 h-4 mr-2" />
+            )}
+            Delete
+          </Button>
+          <div className="flex gap-2">
+            {isEditMode ? (
+              <>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setIsEditMode(false);
+                    setEditedSchedule(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+                <Button 
+                  size="sm"
+                  onClick={handleUpdateSchedule} 
+                  disabled={submitting}
+                  className="bg-primary hover:bg-primary/90"
+                >
+                  {submitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    'Save Changes'
+                  )}
+                </Button>
+              </>
+            ) : (
+              <Button size="sm" onClick={() => {
+                setIsEditMode(true);
+                setEditedSchedule({
+                  id: selectedSchedule.id,
+                  vehicleId: selectedSchedule.vehicle?.id?.toString(),
+                  driverId: selectedSchedule.driver?.id?.toString(),
+                  assignmentName: selectedSchedule.assignmentName,
+                  startAddress: selectedSchedule.startLocation,
+                  startLatitude: selectedSchedule.startLatitude || 13.0827,
+                  startLongitude: selectedSchedule.startLongitude || 80.2707,
+                  endAddress: selectedSchedule.dropLocation,
+                  endLatitude: selectedSchedule.endLatitude || 13.0878,
+                  endLongitude: selectedSchedule.endLongitude || 80.2785,
+                  startTime: selectedSchedule.startTime,
+                  endTime: selectedSchedule.endTime,
+                  status: selectedSchedule.status,
+                });
+              }}>
+                <Edit className="w-4 h-4 mr-2" />
+                Edit Assignment
+              </Button>
+            )}
+          </div>
+        </div>
+      </div>
+    )}
+  </DialogContent>
+</Dialog>
     </div>
   );
 };

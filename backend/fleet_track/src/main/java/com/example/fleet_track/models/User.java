@@ -50,9 +50,9 @@ public class User implements UserDetails {
     @Column(unique = true, nullable = false)
     private String phoneNumber = "-"; // Optional for now
 
-    private int totalTrips = 0;
+    private Integer totalTrips = 0;
 
-    private float ratings = 0.0f;
+    private Float ratings = 0.0f;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

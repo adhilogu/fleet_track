@@ -18,10 +18,8 @@ public class ProfileController {
     @Autowired
     private ProfileService profileService;
 
-    /**
-     * Admin endpoint to create a new user
-     * Requires ADMIN role
-     */
+    // ==================== USER ENDPOINTS ====================
+
     @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> createUser(
@@ -41,63 +39,104 @@ public class ProfileController {
                 : ResponseEntity.badRequest().body(response);
     }
 
-    /**
-     * Get all users (for listing in the UI)
-     */
     @GetMapping("/users")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> getAllUsers() {
-        Map<String, Object> response = profileService.getAllUsers();
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(profileService.getAllUsers());
     }
 
-    /**
-     * Get all drivers
-     */
+    @PutMapping("/users/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> updateUser(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request) {
+        Map<String, Object> response = profileService.updateUser(id, request);
+        return (Boolean) response.get("success")
+                ? ResponseEntity.ok(response)
+                : ResponseEntity.badRequest().body(response);
+    }
+
+    @DeleteMapping("/users/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> deleteUser(@PathVariable Long id) {
+        Map<String, Object> response = profileService.deleteUser(id);
+        return (Boolean) response.get("success")
+                ? ResponseEntity.ok(response)
+                : ResponseEntity.badRequest().body(response);
+    }
+
+    // ==================== DRIVER ENDPOINTS ====================
+
     @GetMapping("/drivers")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> getAllDrivers() {
-        Map<String, Object> response = profileService.getAllDrivers();
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(profileService.getAllDrivers());
     }
 
-    /**
-     * Get all vehicles
-     */
+    @PutMapping("/drivers/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> updateDriver(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request) {
+        Map<String, Object> response = profileService.updateDriver(id, request);
+        return (Boolean) response.get("success")
+                ? ResponseEntity.ok(response)
+                : ResponseEntity.badRequest().body(response);
+    }
+
+    @DeleteMapping("/drivers/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> deleteDriver(@PathVariable Long id) {
+        Map<String, Object> response = profileService.deleteDriver(id);
+        return (Boolean) response.get("success")
+                ? ResponseEntity.ok(response)
+                : ResponseEntity.badRequest().body(response);
+    }
+
+    // ==================== VEHICLE ENDPOINTS ====================
+
     @GetMapping("/vehicles")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> getAllVehicles() {
-        Map<String, Object> response = profileService.getAllVehicles();
-        return ResponseEntity.ok(response);
+        return ResponseEntity.ok(profileService.getAllVehicles());
     }
 
     @PostMapping("/vehicles/create")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> createVehicle(@RequestBody Map<String, String> request) {
-        String vehicleName = request.get("vehicleName");
-        String registrationNumber = request.get("registrationNumber");
-        String model = request.get("model");
-        String typeStr = request.get("type");
-        String capacityStr = request.get("capacity");
-        String lastServiceDate = request.get("lastServiceDate");
-        String nextServiceDate = request.get("nextServiceDate");
-        String statusStr = request.get("status");
-
         Map<String, Object> response = profileService.createVehicle(
-                vehicleName,
-                registrationNumber,
-                model,
-                typeStr,
-                capacityStr,
-                lastServiceDate,
-                nextServiceDate,
-                statusStr
+                request.get("vehicleName"),
+                request.get("registrationNumber"),
+                request.get("model"),
+                request.get("type"),
+                request.get("capacity"),
+                request.get("lastServiceDate"),
+                request.get("nextServiceDate"),
+                request.get("status")
         );
 
-        if ((Boolean) response.get("success")) {
-            return ResponseEntity.ok(response);
-        } else {
-            return ResponseEntity.badRequest().body(response);
-        }
+        return (Boolean) response.get("success")
+                ? ResponseEntity.ok(response)
+                : ResponseEntity.badRequest().body(response);
+    }
+
+    @PutMapping("/vehicles/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> updateVehicle(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> request) {
+        Map<String, Object> response = profileService.updateVehicle(id, request);
+        return (Boolean) response.get("success")
+                ? ResponseEntity.ok(response)
+                : ResponseEntity.badRequest().body(response);
+    }
+
+    @DeleteMapping("/vehicles/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, Object>> deleteVehicle(@PathVariable Long id) {
+        Map<String, Object> response = profileService.deleteVehicle(id);
+        return (Boolean) response.get("success")
+                ? ResponseEntity.ok(response)
+                : ResponseEntity.badRequest().body(response);
     }
 }
