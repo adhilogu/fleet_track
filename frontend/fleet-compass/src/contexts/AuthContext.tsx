@@ -8,6 +8,8 @@ interface User {
   name: string;
 }
 
+
+
 interface AuthContextType {
   isAuthenticated: boolean;
   user: User | null;

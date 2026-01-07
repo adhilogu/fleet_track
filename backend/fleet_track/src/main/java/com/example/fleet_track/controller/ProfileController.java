@@ -20,6 +20,11 @@ public class ProfileController {
 
     // ==================== USER ENDPOINTS ====================
 
+    @GetMapping("/me/{id}")
+    public ResponseEntity<Map<String, Object>> getMyProfile(@PathVariable Long id) {
+        return ResponseEntity.ok(profileService.getMyProfile(id));
+    }
+
     @PostMapping(value = "/create", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> createUser(
@@ -40,7 +45,6 @@ public class ProfileController {
     }
 
     @GetMapping("/users")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> getAllUsers() {
         return ResponseEntity.ok(profileService.getAllUsers());
     }
@@ -68,7 +72,6 @@ public class ProfileController {
     // ==================== DRIVER ENDPOINTS ====================
 
     @GetMapping("/drivers")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> getAllDrivers() {
         return ResponseEntity.ok(profileService.getAllDrivers());
     }
@@ -96,7 +99,6 @@ public class ProfileController {
     // ==================== VEHICLE ENDPOINTS ====================
 
     @GetMapping("/vehicles")
-    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> getAllVehicles() {
         return ResponseEntity.ok(profileService.getAllVehicles());
     }

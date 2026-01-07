@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, Truck, User, Phone, Mail, Star, Calendar, Award, Plus, Upload, Filter, Lock, Edit, Trash2 } from 'lucide-react';
+import { Users, Search, Truck, User, Phone, Mail, Star, Calendar, Award, PlusCircle, Upload, Filter, Lock, Edit, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -10,11 +10,12 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useAuth } from '@/contexts/AuthContext';
 import { useToast } from '@/hooks/use-toast';
+import api from '@/api/api';
 
-type DriverStatus = 'ACTIVE' | 'ONTRIP' | 'INACTIVE';
+type DriverStatus = 'active' | 'ontrip' | 'inactive';
 type VehicleType = 'bus' | 'truck' | 'cab' | 'car';
-type VehicleStatus = 'active' | 'idle' | 'maintenance' | 'out-of-service';
-type UserRole = 'admin' | 'driver' | 'manager' | 'user';
+type VehicleStatus = 'active' |'inactive' |'service' | 'idle' | 'maintenance' | 'out-of-service';
+type UserRole = 'admin' | 'driver' | 'user';
 
 interface Driver {
   id: string;
@@ -91,28 +92,20 @@ const ProfilesPage: React.FC = () => {
     capacity: 0, lastServiceDate: '', nextServiceDate: '', status: 'active' as VehicleStatus
   });
 
-  const getAuthToken = () => token || localStorage.getItem('jwt_token') || localStorage.getItem('jwtToken') || localStorage.getItem('token');
 
   const fetchData = async (endpoint: string, setter: Function) => {
-    const authToken = getAuthToken();
-    if (!authToken) return;
+  try {
+    setLoading(true);
+    const res = await api.get(`/v1/profiles/${endpoint}`);
+    const data = res.data;
+    if (data.success) setter(data[endpoint]);
+  } catch (err) {
+    console.error(`Error fetching ${endpoint}:`, err);
+  } finally {
+    setLoading(false);
+  }
+};
 
-    try {
-      setLoading(true);
-      const response = await fetch(`http://localhost:8080/api/v1/profiles/${endpoint}`, {
-        headers: { 'Authorization': `Bearer ${authToken}` }
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        if (data.success) setter(data[endpoint]);
-      }
-    } catch (error) {
-      console.error(`Error fetching ${endpoint}:`, error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   useEffect(() => {
     if (isAdmin) {
@@ -122,214 +115,161 @@ const ProfilesPage: React.FC = () => {
     }
   }, [activeTab, isAdmin]);
 
+
+
   const handleUserSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!userForm.username.trim() || !userForm.password.trim()) {
-      toast({ title: "Validation Error", description: "Username and password are required.", variant: "destructive" });
-      return;
-    }
-
-    const authToken = getAuthToken();
-    if (!authToken) return;
-
-    const formData = new FormData();
-    formData.append("username", userForm.username.trim());
-    formData.append("password", userForm.password);
-    if (userForm.name.trim()) formData.append("name", userForm.name.trim());
-    if (userForm.email.trim()) formData.append("mailId", userForm.email.trim());
-    if (userForm.phone.trim()) formData.append("phoneNumber", userForm.phone.trim());
-    formData.append("role", userForm.role.toUpperCase());
-    if (userForm.photo) formData.append("photo", userForm.photo);
-
-    try {
-      const response = await fetch('http://localhost:8080/api/v1/profiles/create', {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${authToken}` },
-        body: formData
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        toast({ title: "Success!", description: `User "${data.username}" created successfully.` });
-        setIsUserDialogOpen(false);
-        setUserForm({ name: '', email: '', phone: '', username: '', password: '', role: 'user', photo: null });
-        userForm.role === 'driver' ? fetchData('drivers', setDrivers) : fetchData('users', setUsers);
-      } else {
-        toast({ title: "Failed", description: data.message || "Unknown error", variant: "destructive" });
-      }
-    } catch (error) {
-      toast({ title: "Network Error", description: "Unable to connect to server.", variant: "destructive" });
-    }
-  };
-
-  const handleVehicleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    const payload = {
-      vehicleName: vehicleForm.vehicleName.trim(),
-      registrationNumber: vehicleForm.registrationNumber.trim(),
-      model: vehicleForm.model.trim() || "Unknown Model",
-      type: vehicleForm.type.toUpperCase(),
-      capacity: vehicleForm.capacity.toString(),
-      lastServiceDate: vehicleForm.lastServiceDate,
-      nextServiceDate: vehicleForm.nextServiceDate,
-      status: vehicleForm.status.toUpperCase().replace('-', '_')
-    };
-
-    const authToken = getAuthToken();
-    if (!authToken) return;
-
-    try {
-      const response = await fetch('http://localhost:8080/api/v1/profiles/vehicles/create', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify(payload)
-      });
-
-      const data = await response.json();
-
-      if (response.ok && data.success) {
-        toast({ title: "Success!", description: `Vehicle "${data.vehicleName}" created successfully.` });
-        setIsVehicleDialogOpen(false);
-        setVehicleForm({ vehicleName: '', registrationNumber: '', model: '', type: 'car', capacity: 0, lastServiceDate: '', nextServiceDate: '', status: 'active' });
-        fetchData('vehicles', setVehicles);
-      } else {
-        toast({ title: "Failed", description: data.message || `Error: ${response.status}`, variant: "destructive" });
-      }
-    } catch (error) {
-      toast({ title: "Network Error", description: "Unable to connect to server.", variant: "destructive" });
-    }
-  };
-
-
-  const handleEditUser = (user: SystemUser) => {
-  setEditingUser(user);
-  setUserForm({
-    name: user.name,
-    email: user.email,
-    phone: user.phone,
-    username: user.username,
-    password: '',
-    role: user.role,
-    photo: null
-  });
-  setIsEditUserDialogOpen(true);
-};
-
-const handleEditDriver = (driver: Driver) => {
-  setEditingDriver(driver);
-  setUserForm({
-    name: driver.name,
-    email: driver.email,
-    phone: driver.phone,
-    username: '', // Not editable for drivers
-    password: '',
-    role: 'driver',
-    photo: null
-  });
-  setIsEditUserDialogOpen(true);
-};
-
-const handleEditVehicle = (vehicle: Vehicle) => {
-  setEditingVehicle(vehicle);
-  setVehicleForm({
-    vehicleName: vehicle.name,
-    registrationNumber: vehicle.plateNumber,
-    model: vehicle.model,
-    type: vehicle.type,
-    capacity: vehicle.capacity,
-    lastServiceDate: vehicle.lastServiceDate,
-    nextServiceDate: vehicle.nextServiceDate,
-    status: vehicle.status
-  });
-  setIsEditVehicleDialogOpen(true);
-};
-
-const handleUserUpdate = async (e: React.FormEvent) => {
   e.preventDefault();
-  
-  const authToken = getAuthToken();
-  if (!authToken || !editingUser) return;
 
-  const payload: any = {
-    name: userForm.name.trim(),
-    mailId: userForm.email.trim(),
-    phoneNumber: userForm.phone.trim(),
-    role: userForm.role.toUpperCase()
-  };
+  if (!userForm.username.trim() || !userForm.password.trim()) {
+    toast({
+      title: 'Validation Error',
+      description: 'Username and password are required.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  const formData = new FormData();
+  formData.append('username', userForm.username.trim());
+  formData.append('password', userForm.password);
+  if (userForm.name) formData.append('name', userForm.name.trim());
+  if (userForm.email) formData.append('mailId', userForm.email.trim());
+  if (userForm.phone) formData.append('phoneNumber', userForm.phone.trim());
+  formData.append('role', userForm.role.toUpperCase());
+  if (userForm.photo) formData.append('photo', userForm.photo);
 
   try {
-    const response = await fetch(`http://localhost:8080/api/v1/profiles/users/${editingUser.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`
-      },
-      body: JSON.stringify(payload)
+    const res = await api.post('/v1/profiles/create', formData);
+
+    toast({
+      title: 'Success!',
+      description: `User "${res.data.username}" created successfully.`,
     });
 
-    const data = await response.json();
+    setIsUserDialogOpen(false);
+    setUserForm({
+      name: '',
+      email: '',
+      phone: '',
+      username: '',
+      password: '',
+      role: 'user',
+      photo: null,
+    });
 
-    if (response.ok && data.success) {
-      toast({ title: "Success!", description: "User updated successfully." });
-      setIsEditUserDialogOpen(false);
-      setEditingUser(null);
-      fetchData('users', setUsers);
-    } else {
-      toast({ title: "Failed", description: data.message || "Unknown error", variant: "destructive" });
-    }
-  } catch (error) {
-    toast({ title: "Network Error", description: "Unable to connect to server.", variant: "destructive" });
+    userForm.role === 'driver'
+      ? fetchData('drivers', setDrivers)
+      : fetchData('users', setUsers);
+  } catch (err: any) {
+    toast({
+      title: 'Failed',
+      description: err.response?.data?.message || 'Unable to create user',
+      variant: 'destructive',
+    });
   }
 };
 
-const handleDriverUpdate = async (e: React.FormEvent) => {
+const handleVehicleSubmit = async (e: React.FormEvent) => {
   e.preventDefault();
-  
-  const authToken = getAuthToken();
-  if (!authToken || !editingDriver) return;
+
+  const payload = {
+    vehicleName: vehicleForm.vehicleName.trim(),
+    registrationNumber: vehicleForm.registrationNumber.trim(),
+    model: vehicleForm.model.trim() || 'Unknown Model',
+    type: vehicleForm.type.toUpperCase(),
+    capacity: vehicleForm.capacity.toString(),
+    lastServiceDate: vehicleForm.lastServiceDate,
+    nextServiceDate: vehicleForm.nextServiceDate,
+    status: vehicleForm.status.toUpperCase().replace('-', '_'),
+  };
+
+  try {
+    const res = await api.post('/v1/profiles/vehicles/create', payload);
+
+    toast({
+      title: 'Success!',
+      description: `Vehicle "${res.data.vehicleName}" created successfully.`,
+    });
+
+    setIsVehicleDialogOpen(false);
+    setVehicleForm({
+      vehicleName: '',
+      registrationNumber: '',
+      model: '',
+      type: 'car',
+      capacity: 0,
+      lastServiceDate: '',
+      nextServiceDate: '',
+      status: 'active',
+    });
+
+    fetchData('vehicles', setVehicles);
+  } catch (err: any) {
+    toast({
+      title: 'Failed',
+      description: err.response?.data?.message || 'Unable to create vehicle',
+      variant: 'destructive',
+    });
+  }
+};
+const handleUserUpdate = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!editingUser) return;
 
   const payload = {
     name: userForm.name.trim(),
     mailId: userForm.email.trim(),
-    phoneNumber: userForm.phone.trim()
+    phoneNumber: userForm.phone.trim(),
+    role: userForm.role.toUpperCase(),
   };
 
   try {
-    const response = await fetch(`http://localhost:8080/api/v1/profiles/drivers/${editingDriver.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`
-      },
-      body: JSON.stringify(payload)
+    await api.put(`/v1/profiles/users/${editingUser.id}`, payload);
+
+    toast({ title: 'Success!', description: 'User updated successfully.' });
+
+    setIsEditUserDialogOpen(false);
+    setEditingUser(null);
+    fetchData('users', setUsers);
+  } catch (err: any) {
+    toast({
+      title: 'Failed',
+      description: err.response?.data?.message || 'Unable to update user',
+      variant: 'destructive',
     });
-
-    const data = await response.json();
-
-    if (response.ok && data.success) {
-      toast({ title: "Success!", description: "Driver updated successfully." });
-      setIsEditUserDialogOpen(false);
-      setEditingDriver(null);
-      fetchData('drivers', setDrivers);
-    } else {
-      toast({ title: "Failed", description: data.message || "Unknown error", variant: "destructive" });
-    }
-  } catch (error) {
-    toast({ title: "Network Error", description: "Unable to connect to server.", variant: "destructive" });
   }
 };
+const handleDriverUpdate = async (e: React.FormEvent) => {
+  e.preventDefault();
+  if (!editingDriver) return;
 
+  const payload = {
+    name: userForm.name.trim(),
+    mailId: userForm.email.trim(),
+    phoneNumber: userForm.phone.trim(),
+    status: editingDriver.status,
+    role: 'DRIVER',
+  };
+
+  try {
+    await api.put(`/v1/profiles/drivers/${editingDriver.id}`, payload);
+
+    toast({ title: 'Success!', description: 'Driver updated successfully.' });
+
+    setIsEditUserDialogOpen(false);
+    setEditingDriver(null);
+    fetchData('drivers', setDrivers);
+  } catch (err: any) {
+    toast({
+      title: 'Failed',
+      description: err.response?.data?.message || 'Unable to update driver',
+      variant: 'destructive',
+    });
+  }
+};
 const handleVehicleUpdate = async (e: React.FormEvent) => {
   e.preventDefault();
-
-  const authToken = getAuthToken();
-  if (!authToken || !editingVehicle) return;
+  if (!editingVehicle) return;
 
   const payload = {
     vehicleName: vehicleForm.vehicleName.trim(),
@@ -339,108 +279,95 @@ const handleVehicleUpdate = async (e: React.FormEvent) => {
     capacity: vehicleForm.capacity.toString(),
     lastServiceDate: vehicleForm.lastServiceDate,
     nextServiceDate: vehicleForm.nextServiceDate,
-    status: vehicleForm.status.toUpperCase().replace('-', '_')
+    status: vehicleForm.status.toUpperCase().replace('-', '_'),
   };
 
   try {
-    const response = await fetch(`http://localhost:8080/api/v1/profiles/vehicles/${editingVehicle.id}`, {
-      method: 'PUT',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${authToken}`
-      },
-      body: JSON.stringify(payload)
+    await api.put(`/v1/profiles/vehicles/${editingVehicle.id}`, payload);
+
+    toast({ title: 'Success!', description: 'Vehicle updated successfully.' });
+
+    setIsEditVehicleDialogOpen(false);
+    setEditingVehicle(null);
+    fetchData('vehicles', setVehicles);
+  } catch (err: any) {
+    toast({
+      title: 'Update Failed',
+      description: err.response?.data?.message || 'Unable to update vehicle',
+      variant: 'destructive',
     });
-
-    const data = await response.json();
-
-    if (response.ok && data.success) {
-      toast({ title: "Success!", description: "Vehicle updated successfully." });
-      setIsEditVehicleDialogOpen(false);
-      setEditingVehicle(null);
-      fetchData('vehicles', setVehicles);
-    } else {
-      toast({ title: "Failed", description: data.message || "Unknown error", variant: "destructive" });
-    }
-  } catch (error) {
-    toast({ title: "Network Error", description: "Unable to connect to server.", variant: "destructive" });
   }
 };
-
-const handleDeleteUser = async (userId: string) => {
-  if (!confirm('Are you sure you want to delete this user?')) return;
-
-  const authToken = getAuthToken();
-  if (!authToken) return;
-
-  try {
-    const response = await fetch(`http://localhost:8080/api/v1/profiles/users/${userId}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${authToken}` }
-    });
-
-    const data = await response.json();
-
-    if (response.ok && data.success) {
-      toast({ title: "Success!", description: "User deleted successfully." });
-      fetchData('users', setUsers);
-    } else {
-      toast({ title: "Failed", description: data.message || "Unknown error", variant: "destructive" });
-    }
-  } catch (error) {
-    toast({ title: "Network Error", description: "Unable to connect to server.", variant: "destructive" });
-  }
+const handleDeleteUser = async (id: string) => {
+  if (!confirm('Are you sure?')) return;
+  await api.delete(`/v1/profiles/users/${id}`);
+  toast({ title: 'User deleted' });
+  fetchData('users', setUsers);
 };
 
-const handleDeleteDriver = async (driverId: string) => {
-  if (!confirm('Are you sure you want to delete this driver?')) return;
-
-  const authToken = getAuthToken();
-  if (!authToken) return;
-
-  try {
-    const response = await fetch(`http://localhost:8080/api/v1/profiles/drivers/${driverId}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${authToken}` }
-    });
-
-    const data = await response.json();
-
-    if (response.ok && data.success) {
-      toast({ title: "Success!", description: "Driver deleted successfully." });
-      fetchData('drivers', setDrivers);
-    } else {
-      toast({ title: "Failed", description: data.message || "Unknown error", variant: "destructive" });
-    }
-  } catch (error) {
-    toast({ title: "Network Error", description: "Unable to connect to server.", variant: "destructive" });
-  }
+const handleDeleteDriver = async (id: string) => {
+  if (!confirm('Are you sure?')) return;
+  await api.delete(`/v1/profiles/drivers/${id}`);
+  toast({ title: 'Driver deleted' });
+  fetchData('drivers', setDrivers);
 };
 
-const handleDeleteVehicle = async (vehicleId: string) => {
-  if (!confirm('Are you sure you want to delete this vehicle?')) return;
-
-  const authToken = getAuthToken();
-  if (!authToken) return;
-
-  try {
-    const response = await fetch(`http://localhost:8080/api/v1/profiles/vehicles/${vehicleId}`, {
-      method: 'DELETE',
-      headers: { 'Authorization': `Bearer ${authToken}` }
-    });
-
-    const data = await response.json();
-
-    if (response.ok && data.success) {
-      toast({ title: "Success!", description: "Vehicle deleted successfully." });
-      fetchData('vehicles', setVehicles);
-    } else {
-      toast({ title: "Failed", description: data.message || "Unknown error", variant: "destructive" });
-    }
-  } catch (error) {
-    toast({ title: "Network Error", description: "Unable to connect to server.", variant: "destructive" });
-  }
+const handleDeleteVehicle = async (id: string) => {
+  if (!confirm('Are you sure?')) return;
+  await api.delete(`/v1/profiles/vehicles/${id}`);
+  toast({ title: 'Vehicle deleted' });
+  fetchData('vehicles', setVehicles);
 };
+
+const handleEditUser = (user: SystemUser) => {
+  setEditingUser(user);
+  setEditingDriver(null);
+
+  setUserForm({
+    name: user.name || '',
+    email: user.email || '',
+    phone: user.phone || '',        // ✅ FIXED
+    username: user.username || '',
+    password: '',
+    role: user.role,
+    photo: null,
+  });
+
+  setIsEditUserDialogOpen(true);
+};
+const handleEditDriver = (driver: Driver) => {
+  setEditingDriver(driver);
+  setEditingUser(null);
+
+  setUserForm({
+    name: driver.name || '',
+    email: driver.email || '',
+    phone: driver.phone || '',     // ✅ FIXED
+    username: '',
+    password: '',
+    role: 'driver',
+    photo: null,
+  });
+
+  setIsEditUserDialogOpen(true);
+};
+const handleEditVehicle = (vehicle: Vehicle) => {
+  setEditingVehicle(vehicle);
+
+  setVehicleForm({
+    vehicleName: vehicle.name || '',
+    registrationNumber: vehicle.plateNumber || '',
+    model: vehicle.model || '',
+    type: vehicle.type,
+    capacity: vehicle.capacity || 0,
+    lastServiceDate: vehicle.lastServiceDate || '',
+    nextServiceDate: vehicle.nextServiceDate || '',
+    status: vehicle.status,
+  });
+
+  setIsEditVehicleDialogOpen(true);
+};
+
 
 
   const filteredUsers = users.filter(u => {
@@ -508,7 +435,7 @@ const handleDeleteVehicle = async (vehicleId: string) => {
             {activeTab === 'users' && (
               <Dialog open={isUserDialogOpen} onOpenChange={setIsUserDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button className="gap-2"><Plus className="w-4 h-4" />Create User</Button>
+                  <Button className="gap-2"><PlusCircle className="w-4 h-4" />Create User</Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader><DialogTitle>Create New User</DialogTitle></DialogHeader>
@@ -593,7 +520,7 @@ const handleDeleteVehicle = async (vehicleId: string) => {
             {activeTab === 'vehicles' && (
               <Dialog open={isVehicleDialogOpen} onOpenChange={setIsVehicleDialogOpen}>
                 <DialogTrigger asChild>
-                  <Button className="gap-2"><Plus className="w-4 h-4" />Add Vehicle</Button>
+                  <Button className="gap-2"><PlusCircle className="w-4 h-4" />Add Vehicle</Button>
                 </DialogTrigger>
                 <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader><DialogTitle>Add New Vehicle</DialogTitle></DialogHeader>
@@ -667,51 +594,86 @@ const handleDeleteVehicle = async (vehicleId: string) => {
 
       {/* Edit User Dialog */}
       <Dialog open={isEditUserDialogOpen} onOpenChange={setIsEditUserDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader><DialogTitle>Edit {editingDriver ? 'Driver' : 'User'}</DialogTitle></DialogHeader>
-          <form onSubmit={editingDriver ? handleDriverUpdate : handleUserUpdate} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="editUserName">Full Name *</Label>
-              <Input id="editUserName" required value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} />
-            </div>
+  <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+    <DialogHeader><DialogTitle>Edit {editingDriver ? 'Driver' : 'User'}</DialogTitle></DialogHeader>
+    <form onSubmit={editingDriver ? handleDriverUpdate : handleUserUpdate} className="space-y-6">
+      <div className="space-y-2">
+        <Label htmlFor="editUserName">Full Name *</Label>
+        <Input id="editUserName" required value={userForm.name} onChange={(e) => setUserForm({ ...userForm, name: e.target.value })} />
+      </div>
 
-            {!editingDriver && (
-              <div className="space-y-2">
-                <Label htmlFor="editUserRole">Role *</Label>
-                <Select value={userForm.role} onValueChange={(value: UserRole) => setUserForm({ ...userForm, role: value })}>
-                  <SelectTrigger id="editUserRole"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="admin">Admin</SelectItem>
-                    <SelectItem value="manager">Manager</SelectItem>
-                    <SelectItem value="driver">Driver</SelectItem>
-                    <SelectItem value="user">User</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
+      {editingDriver ? (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="editDriverStatus">Driver Status *</Label>
+            <Select 
+              value={editingDriver.status} 
+              onValueChange={(value: DriverStatus) => setEditingDriver({ ...editingDriver, status: value })}
+            >
+              <SelectTrigger id="editDriverStatus"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ACTIVE">Active</SelectItem>
+                <SelectItem value="INACTIVE">Inactive</SelectItem>
+                <SelectItem value="ONTRIP">On Trip</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="editUserPhone">Phone Number *</Label>
-                <Input id="editUserPhone" type="tel" required value={userForm.phone} onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })} />
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="editUserEmail">Email ID *</Label>
-                <Input id="editUserEmail" type="email" required value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} />
-              </div>
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="editDriverRole">Change Role *</Label>
+            <Select 
+              value={userForm.role} 
+              onValueChange={(value: UserRole) => setUserForm({ ...userForm, role: value })}
+            >
+              <SelectTrigger id="editDriverRole"><SelectValue /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="admin">Admin</SelectItem>
+                <SelectItem value="manager">Manager</SelectItem>
+                <SelectItem value="driver">Driver</SelectItem>
+                <SelectItem value="user">User</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </>
+      ) : (
+        <div className="space-y-2">
+          <Label htmlFor="editUserRole">Role *</Label>
+          <Select value={userForm.role} onValueChange={(value: UserRole) => setUserForm({ ...userForm, role: value })}>
+            <SelectTrigger id="editUserRole"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="admin">Admin</SelectItem>
+              <SelectItem value="manager">Manager</SelectItem>
+              <SelectItem value="driver">Driver</SelectItem>
+              <SelectItem value="user">User</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+      )}
 
-            <div className="flex justify-end gap-2 pt-4">
-              <Button type="button" variant="outline" onClick={() => {
-                setIsEditUserDialogOpen(false);
-                setEditingUser(null);
-                setEditingDriver(null);
-              }}>Cancel</Button>
-              <Button type="submit">Update</Button>
-            </div>
-          </form>
-        </DialogContent>
-      </Dialog>
+      <div className="grid grid-cols-2 gap-4">
+        <div className="space-y-2">
+          <Label htmlFor="editUserPhone">Phone Number *</Label>
+          <Input id="editUserPhone" type="tel" required value={userForm.phone} onChange={(e) => setUserForm({ ...userForm, phone: e.target.value })} />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="editUserEmail">Email ID *</Label>
+          <Input id="editUserEmail" type="email" required value={userForm.email} onChange={(e) => setUserForm({ ...userForm, email: e.target.value })} />
+        </div>
+      </div>
+
+      <div className="flex justify-end gap-2 pt-4">
+        <Button type="button" variant="outline" onClick={() => {
+          setIsEditUserDialogOpen(false);
+          setEditingUser(null);
+          setEditingDriver(null);
+        }}>Cancel</Button>
+        <Button type="submit">Update</Button>
+      </div>
+    </form>
+  </DialogContent>
+</Dialog>
+
+
 
       {/* Edit Vehicle Dialog */}
       <Dialog open={isEditVehicleDialogOpen} onOpenChange={setIsEditVehicleDialogOpen}>
@@ -804,7 +766,6 @@ const handleDeleteVehicle = async (vehicleId: string) => {
             <SelectContent>
               <SelectItem value="all">All Roles</SelectItem>
               <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="manager">Manager</SelectItem>
               <SelectItem value="driver">Driver</SelectItem>
               <SelectItem value="user">User</SelectItem>
             </SelectContent>
@@ -821,9 +782,7 @@ const handleDeleteVehicle = async (vehicleId: string) => {
               <SelectItem value="all">All Status</SelectItem>
               <SelectItem value="active">Active</SelectItem>
               <SelectItem value="inactive">Inactive</SelectItem>
-              <SelectItem value="on-trip">On Trip</SelectItem>
-              <SelectItem value="off-duty">Off Duty</SelectItem>
-              <SelectItem value="on-leave">On Leave</SelectItem>
+              <SelectItem value="ontrip">On Trip</SelectItem>
             </SelectContent>
           </Select>
         )}
@@ -1087,238 +1046,246 @@ const handleDeleteVehicle = async (vehicleId: string) => {
   </Tabs>
 
   {/* User Detail Dialog with Edit/Delete */}
-  <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
-    <DialogContent className="max-w-2xl">
-      <DialogHeader>
-        <DialogTitle>User Details</DialogTitle>
-      </DialogHeader>
-      {selectedUser && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
-              {selectedUser.photo ? (
-                <img src={`http://localhost:8080${selectedUser.photo}`} alt={selectedUser.name} className="w-full h-full object-cover rounded-full" />
-              ) : (
-                <User className="w-10 h-10 text-muted-foreground" />
-              )}
-            </div>
-            <div>
-              <h3 className="text-xl font-bold">{selectedUser.name}</h3>
-              <Badge className={getStatusColor(selectedUser.role, 'role')}>{selectedUser.role}</Badge>
-            </div>
+  {/* User Detail Dialog with Edit/Delete */}
+<Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
+  <DialogContent className="max-w-2xl">
+    <DialogHeader>
+      <DialogTitle>User Details</DialogTitle>
+    </DialogHeader>
+    {selectedUser && (
+      <div className="space-y-4">
+        <div className="flex items-center gap-4">
+          <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
+            {selectedUser.photo ? (
+              <img src={`http://localhost:8080${selectedUser.photo}`} alt={selectedUser.name} className="w-full h-full object-cover rounded-full" />
+            ) : (
+              <User className="w-10 h-10 text-muted-foreground" />
+            )}
           </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-muted-foreground">User ID</Label>
-              <p className="font-medium">{selectedUser.id}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Username</Label>
-              <p className="font-medium">@{selectedUser.username}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Email</Label>
-              <p className="font-medium">{selectedUser.email}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Phone</Label>
-              <p className="font-medium">{selectedUser.phone}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Created Date</Label>
-              <p className="font-medium">{new Date(selectedUser.createdDate).toLocaleDateString()}</p>
-            </div>
+          <div>
+            <h3 className="text-xl font-bold">{selectedUser.name}</h3>
+            <Badge className={getStatusColor(selectedUser.role, 'role')}>{selectedUser.role}</Badge>
           </div>
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label className="text-muted-foreground">User ID</Label>
+            <p className="font-medium">{selectedUser.id}</p>
+          </div>
+          <div>
+            <Label className="text-muted-foreground">Username</Label>
+            <p className="font-medium">@{selectedUser.username}</p>
+          </div>
+          <div>
+            <Label className="text-muted-foreground">Email</Label>
+            <p className="font-medium">{selectedUser.email}</p>
+          </div>
+          <div>
+            <Label className="text-muted-foreground">Phone</Label>
+            <p className="font-medium">{selectedUser.phone}</p>
+          </div>
+          <div>
+            <Label className="text-muted-foreground">Created Date</Label>
+            <p className="font-medium">{new Date(selectedUser.createdDate).toLocaleDateString()}</p>
+          </div>
+        </div>
 
-          {isAdmin && (
-            <div className="flex gap-2 pt-4 border-t">
-              <Button
-                variant="outline"
-                className="flex-1 gap-2"
-                onClick={() => {
-                  handleEditUser(selectedUser);
-                  setSelectedUser(null);
-                }}
-              >
-                <Edit className="w-4 h-4" />
-                Edit User
-              </Button>
-              <Button
-                variant="destructive"
-                className="gap-2"
-                onClick={() => {
+        {isAdmin && (
+          <div className="flex justify-between pt-3 border-t border-border">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                if (confirm('Are you sure you want to delete this user?')) {
                   handleDeleteUser(selectedUser.id);
                   setSelectedUser(null);
-                }}
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </Button>
-            </div>
-          )}
+                }
+              }}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={() => {
+                handleEditUser(selectedUser);
+                setSelectedUser(null);
+              }}
+              className="bg-primary hover:bg-primary/90"
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Edit User
+            </Button>
+          </div>
+        )}
+      </div>
+    )}
+  </DialogContent>
+</Dialog>
+
+{/* Driver Detail Dialog with Edit/Delete */}
+<Dialog open={!!selectedDriver} onOpenChange={() => setSelectedDriver(null)}>
+  <DialogContent className="max-w-2xl">
+    <DialogHeader>
+      <DialogTitle>Driver Details</DialogTitle>
+    </DialogHeader>
+    {selectedDriver && (
+      <div className="space-y-4">
+        <div className="flex items-center gap-4">
+          <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
+            {selectedDriver.photo ? (
+              <img src={`http://localhost:8080${selectedDriver.photo}`} alt={selectedDriver.name} className="w-full h-full object-cover rounded-full" />
+            ) : (
+              <User className="w-10 h-10 text-muted-foreground" />
+            )}
+          </div>
+          <div>
+            <h3 className="text-xl font-bold">{selectedDriver.name}</h3>
+            <Badge className={getStatusColor(selectedDriver.status, 'driver')}>{selectedDriver.status}</Badge>
+          </div>
         </div>
-      )}
-    </DialogContent>
-  </Dialog>
-
-  {/* Driver Detail Dialog with Edit/Delete */}
-  <Dialog open={!!selectedDriver} onOpenChange={() => setSelectedDriver(null)}>
-    <DialogContent className="max-w-2xl">
-      <DialogHeader>
-        <DialogTitle>Driver Details</DialogTitle>
-      </DialogHeader>
-      {selectedDriver && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="w-20 h-20 rounded-full bg-secondary flex items-center justify-center overflow-hidden">
-              {selectedDriver.photo ? (
-                <img src={`http://localhost:8080${selectedDriver.photo}`} alt={selectedDriver.name} className="w-full h-full object-cover rounded-full" />
-              ) : (
-                <User className="w-10 h-10 text-muted-foreground" />
-              )}
-            </div>
-            <div>
-              <h3 className="text-xl font-bold">{selectedDriver.name}</h3>
-              <Badge className={getStatusColor(selectedDriver.status, 'driver')}>{selectedDriver.status.replace('-', ' ')}</Badge>
-            </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label className="text-muted-foreground">Driver ID</Label>
+            <p className="font-medium">{selectedDriver.id}</p>
           </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-muted-foreground">Driver ID</Label>
-              <p className="font-medium">{selectedDriver.id}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">License Number</Label>
-              <p className="font-medium">{selectedDriver.licenseNumber}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Email</Label>
-              <p className="font-medium">{selectedDriver.email}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Phone</Label>
-              <p className="font-medium">{selectedDriver.phone}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Total Trips</Label>
-              <p className="font-medium">{selectedDriver.totalTrips}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Rating</Label>
-              <p className="font-medium flex items-center gap-1">
-                <Star className="w-4 h-4 text-warning fill-warning" />
-                {selectedDriver.rating}
-              </p>
-            </div>
+          <div>
+            <Label className="text-muted-foreground">License Number</Label>
+            <p className="font-medium">{selectedDriver.licenseNumber}</p>
           </div>
+          <div>
+            <Label className="text-muted-foreground">Email</Label>
+            <p className="font-medium">{selectedDriver.email}</p>
+          </div>
+          <div>
+            <Label className="text-muted-foreground">Phone</Label>
+            <p className="font-medium">{selectedDriver.phone}</p>
+          </div>
+          <div>
+            <Label className="text-muted-foreground">Total Trips</Label>
+            <p className="font-medium">{selectedDriver.totalTrips}</p>
+          </div>
+          <div>
+            <Label className="text-muted-foreground">Rating</Label>
+            <p className="font-medium flex items-center gap-1">
+              <Star className="w-4 h-4 text-warning fill-warning" />
+              {selectedDriver.rating}
+            </p>
+          </div>
+        </div>
 
-          {isAdmin && (
-            <div className="flex gap-2 pt-4 border-t">
-              <Button
-                variant="outline"
-                className="flex-1 gap-2"
-                onClick={() => {
-                  handleEditDriver(selectedDriver);
-                  setSelectedDriver(null);
-                }}
-              >
-                <Edit className="w-4 h-4" />
-                Edit Driver
-              </Button>
-              <Button
-                variant="destructive"
-                className="gap-2"
-                onClick={() => {
+        {isAdmin && (
+          <div className="flex justify-between pt-3 border-t border-border">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                if (confirm('Are you sure you want to delete this driver?')) {
                   handleDeleteDriver(selectedDriver.id);
                   setSelectedDriver(null);
-                }}
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </Button>
-            </div>
-          )}
+                }
+              }}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={() => {
+                handleEditDriver(selectedDriver);
+                setSelectedDriver(null);
+              }}
+              className="bg-primary hover:bg-primary/90"
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Edit Driver
+            </Button>
+          </div>
+        )}
+      </div>
+    )}
+  </DialogContent>
+</Dialog>
+
+{/* Vehicle Detail Dialog with Edit/Delete */}
+<Dialog open={!!selectedVehicle} onOpenChange={() => setSelectedVehicle(null)}>
+  <DialogContent className="max-w-2xl">
+    <DialogHeader>
+      <DialogTitle>Vehicle Details</DialogTitle>
+    </DialogHeader>
+    {selectedVehicle && (
+      <div className="space-y-4">
+        <div className="flex items-center gap-4">
+          <div className="text-5xl">{getVehicleIcon(selectedVehicle.type)}</div>
+          <div>
+            <h3 className="text-xl font-bold">{selectedVehicle.name}</h3>
+            <p className="text-muted-foreground">{selectedVehicle.plateNumber}</p>
+            <Badge className={getStatusColor(selectedVehicle.status, 'vehicle')}>{selectedVehicle.status.replace('-', ' ')}</Badge>
+          </div>
         </div>
-      )}
-    </DialogContent>
-  </Dialog>
-
-  {/* Vehicle Detail Dialog with Edit/Delete */}
-  <Dialog open={!!selectedVehicle} onOpenChange={() => setSelectedVehicle(null)}>
-    <DialogContent className="max-w-2xl">
-      <DialogHeader>
-        <DialogTitle>Vehicle Details</DialogTitle>
-      </DialogHeader>
-      {selectedVehicle && (
-        <div className="space-y-4">
-          <div className="flex items-center gap-4">
-            <div className="text-5xl">{getVehicleIcon(selectedVehicle.type)}</div>
-            <div>
-              <h3 className="text-xl font-bold">{selectedVehicle.name}</h3>
-              <p className="text-muted-foreground">{selectedVehicle.plateNumber}</p>
-              <Badge className={getStatusColor(selectedVehicle.status, 'vehicle')}>{selectedVehicle.status.replace('-', ' ')}</Badge>
-            </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <Label className="text-muted-foreground">Vehicle ID</Label>
+            <p className="font-medium">{selectedVehicle.id}</p>
           </div>
-          
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <Label className="text-muted-foreground">Vehicle ID</Label>
-              <p className="font-medium">{selectedVehicle.id}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Model</Label>
-              <p className="font-medium">{selectedVehicle.model}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Type</Label>
-              <p className="font-medium capitalize">{selectedVehicle.type}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Capacity</Label>
-              <p className="font-medium">{selectedVehicle.capacity}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Last Service</Label>
-              <p className="font-medium">{new Date(selectedVehicle.lastServiceDate).toLocaleDateString()}</p>
-            </div>
-            <div>
-              <Label className="text-muted-foreground">Next Service</Label>
-              <p className="font-medium">{new Date(selectedVehicle.nextServiceDate).toLocaleDateString()}</p>
-            </div>
+          <div>
+            <Label className="text-muted-foreground">Model</Label>
+            <p className="font-medium">{selectedVehicle.model}</p>
           </div>
+          <div>
+            <Label className="text-muted-foreground">Type</Label>
+            <p className="font-medium capitalize">{selectedVehicle.type}</p>
+          </div>
+          <div>
+            <Label className="text-muted-foreground">Capacity</Label>
+            <p className="font-medium">{selectedVehicle.capacity}</p>
+          </div>
+          <div>
+            <Label className="text-muted-foreground">Last Service</Label>
+            <p className="font-medium">{new Date(selectedVehicle.lastServiceDate).toLocaleDateString()}</p>
+          </div>
+          <div>
+            <Label className="text-muted-foreground">Next Service</Label>
+            <p className="font-medium">{new Date(selectedVehicle.nextServiceDate).toLocaleDateString()}</p>
+          </div>
+        </div>
 
-          {isAdmin && (
-            <div className="flex gap-2 pt-4 border-t">
-              <Button
-                variant="outline"
-                className="flex-1 gap-2"
-                onClick={() => {
-                  handleEditVehicle(selectedVehicle);
-                  setSelectedVehicle(null);
-                }}
-              >
-                <Edit className="w-4 h-4" />
-                Edit Vehicle
-              </Button>
-              <Button
-                variant="destructive"
-                className="gap-2"
-                onClick={() => {
+        {isAdmin && (
+          <div className="flex justify-between pt-3 border-t border-border">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={() => {
+                if (confirm('Are you sure you want to delete this vehicle?')) {
                   handleDeleteVehicle(selectedVehicle.id);
                   setSelectedVehicle(null);
-                }}
-              >
-                <Trash2 className="w-4 h-4" />
-                Delete
-              </Button>
-            </div>
-          )}
-        </div>
-      )}
-    </DialogContent>
-  </Dialog>
+                }
+              }}
+            >
+              <Trash2 className="w-4 h-4 mr-2" />
+              Delete
+            </Button>
+            <Button 
+              size="sm" 
+              onClick={() => {
+                handleEditVehicle(selectedVehicle);
+                setSelectedVehicle(null);
+              }}
+              className="bg-primary hover:bg-primary/90"
+            >
+              <Edit className="w-4 h-4 mr-2" />
+              Edit Vehicle
+            </Button>
+          </div>
+        )}
+      </div>
+    )}
+  </DialogContent>
+</Dialog>
+
 </div>
   );
 };

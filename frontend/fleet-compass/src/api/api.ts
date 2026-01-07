@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 // Load base URL from .env (Vite requires VITE_ prefix)
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8080/api';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 if (!API_BASE_URL) {
   console.error('VITE_API_BASE_URL is not defined in .env file!');

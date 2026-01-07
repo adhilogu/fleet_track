@@ -31,14 +31,11 @@ import {
 } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import { mockVehicles } from '@/data/mockData';
 import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
+import api from '@/api/api';
 
-// API Configuration
-const API_BASE_URL = 'http://localhost:8080/api/services';
-const VEHICLE_API_URL = 'http://localhost:8080/api/vehicles';
 
 interface ServiceResponse {
   id: number;
@@ -88,164 +85,84 @@ const ServicePage: React.FC = () => {
   });
   const [selectedVehicleDetails, setSelectedVehicleDetails] = useState<{ name: string; reg: string } | null>(null);
 
-  // Helper function to get auth headers
-  const getAuthHeaders = () => {
-    const authToken = localStorage.getItem('jwt_token');
-    const headers: HeadersInit = {
-      'Content-Type': 'application/json',
-    };
-    if (authToken) {
-      headers['Authorization'] = `Bearer ${authToken}`;
-    }
-    return headers;
-  };
 
   // Fetch vehicles from API
   const fetchVehicles = async () => {
-    try {
-      console.log('🚗 Fetching vehicles from:', VEHICLE_API_URL);
-      const response = await fetch(VEHICLE_API_URL, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      });
+  try {
+    const res = await api.get('/vehicles'); 
+    // OR: '/v1/profiles/vehicles' 
 
-      if (!response.ok) {
-        throw new Error(`Failed to fetch vehicles: ${response.status}`);
-      }
+    const data = res.data;
+    setVehicles(Array.isArray(data) ? data : data.vehicles || []);
+  } catch (err) {
+    console.error('❌ Vehicle fetch error:', err);
+    toast({
+      title: 'Error',
+      description: 'Failed to load vehicles',
+      variant: 'destructive',
+    });
+  }
+};
 
-      const data = await response.json();
-      console.log('✅ Vehicles fetched:', data);
-      setVehicles(data);
-    } catch (error: any) {
-      console.error('❌ Vehicle fetch error:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load vehicles.",
-        variant: "destructive",
-      });
-      // Fallback to mock data if API fails
-      setVehicles(mockVehicles as any);
-    }
-  };
 
   // Fetch services from API
   const fetchServices = async () => {
-    console.log('🔍 Fetching services from:', API_BASE_URL);
-    console.log('🌐 Window location:', window.location.href);
-    
-    try {
-      setLoading(true);
-      
-      console.log('⏳ Attempting fetch...');
-      const response = await fetch(API_BASE_URL, {
-        method: 'GET',
-        headers: getAuthHeaders(),
-      });
+  try {
+    setLoading(true);
 
-      console.log('📡 Response received!');
-      console.log('📡 Response status:', response.status);
-      console.log('📡 Response ok:', response.ok);
-      console.log('📡 Response headers:', Object.fromEntries(response.headers.entries()));
-      
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error('❌ Error response body:', errorText);
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
+    const res = await api.get('/services');
+    const data = res.data;
 
-      const contentType = response.headers.get('content-type');
-      console.log('📄 Content-Type:', contentType);
-      
-      const data = await response.json();
-      console.log('✅ Services fetched successfully!');
-      console.log('✅ Number of records:', data.length);
-      console.log('✅ Data:', data);
-      setRecords(data);
-    } catch (error: any) {
-      console.error('❌❌❌ FETCH ERROR DETAILS ❌❌❌');
-      console.error('Error name:', error.name);
-      console.error('Error message:', error.message);
-      console.error('Error stack:', error.stack);
-      console.error('Full error:', error);
-      
-      let errorMessage = 'Failed to fetch services';
-      
-      if (error.message.includes('NetworkError') || error.message.includes('Failed to fetch')) {
-        errorMessage = 'Cannot connect to backend. Is Spring Boot running on port 8080?';
-      } else if (error.message.includes('CORS')) {
-        errorMessage = 'CORS error - check backend CORS configuration';
-      } else {
-        errorMessage = error.message;
-      }
-      
-      toast({
-        title: 'Connection Error',
-        description: errorMessage,
-        variant: 'destructive',
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
+    setRecords(Array.isArray(data) ? data : data.services || []);
+  } catch (err: any) {
+    console.error('❌ Service fetch error:', err);
+
+    toast({
+      title: 'Connection Error',
+      description:
+        err.response?.data?.message ||
+        'Failed to fetch services',
+      variant: 'destructive',
+    });
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   // Create service API call
   const createServiceAPI = async (serviceData: any) => {
-    const payload = {
-      vehicle: {
-        id: serviceData.vehicleId  // Nest vehicleId inside vehicle object
-      },
-      serviceName: serviceData.serviceName,
-      serviceDate: serviceData.serviceDate,
-      nextServiceDate: serviceData.nextServiceDate,
-      notes: serviceData.notes || '',
-      amount: serviceData.amount,
-      status: serviceData.status,
-    };
-    
-    console.log('📤 Creating service with payload:', JSON.stringify(payload, null, 2));
-    
-    const response = await fetch(API_BASE_URL, {
-      method: 'POST',
-      headers: getAuthHeaders(),
-      body: JSON.stringify(payload),
-    });
-
-    console.log('📡 Response status:', response.status);
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Create error response:', errorText);
-      throw new Error(`Failed to create service: ${errorText}`);
-    }
-
-    return response.json();
+  const payload = {
+    vehicle: { id: serviceData.vehicleId },
+    serviceName: serviceData.serviceName,
+    serviceDate: serviceData.serviceDate,
+    nextServiceDate: serviceData.nextServiceDate,
+    notes: serviceData.notes || '',
+    amount: serviceData.amount,
+    status: serviceData.status,
   };
+
+  const res = await api.post('/services', payload);
+  return res.data;
+};
+
   
   // Update service API call
   const updateServiceAPI = async (id: number, serviceData: any) => {
-    console.log('📤 Updating service:', id, serviceData);
-    const response = await fetch(`${API_BASE_URL}/${id}`, {
-      method: 'PUT',
-      headers: getAuthHeaders(),
-      body: JSON.stringify({
-        vehicleId: serviceData.vehicleId,
-        serviceName: serviceData.serviceName,
-        serviceDate: serviceData.serviceDate,
-        nextServiceDate: serviceData.nextServiceDate,
-        notes: serviceData.notes,
-        amount: serviceData.amount,
-        status: serviceData.status,
-      }),
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('❌ Update error:', errorText);
-      throw new Error(`Failed to update service: ${errorText}`);
-    }
-
-    return response.json();
+  const payload = {
+    vehicle: { id: serviceData.vehicleId },
+    serviceName: serviceData.serviceName,
+    serviceDate: serviceData.serviceDate,
+    nextServiceDate: serviceData.nextServiceDate,
+    notes: serviceData.notes,
+    amount: serviceData.amount,
+    status: serviceData.status,
   };
+
+  const res = await api.put(`/services/${id}`, payload);
+  return res.data;
+};
+
 
   useEffect(() => {
     fetchVehicles();

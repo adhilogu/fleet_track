@@ -24,13 +24,13 @@ public class AssignmentService {
     @Autowired
     private UserRepository userRepository;
 
-    /* ================= GET ALL ================= */
+
     public List<Assignment> getAllAssignments() {
         //System.out.println("🔥 get all HIT 🔥");
         return assignmentRepository.findAll();
     }
 
-    /* ================= GET BY ID ================= */
+
     public Optional<Assignment> getAssignmentById(Long id) {
         return assignmentRepository.findById(id);
     }
@@ -49,7 +49,6 @@ public class AssignmentService {
     }
 
 
-    /* ================= CREATE ================= */
     public Assignment createAssignment(Assignment request) {
         //System.out.println("🔥 create HIT 🔥");
 
@@ -62,7 +61,7 @@ public class AssignmentService {
         Vehicle vehicle = vehicleRepository.findById(vehicleId)
                 .orElseThrow(() -> new RuntimeException("Vehicle not found with id: " + vehicleId));
 
-        // ✅ Driver validation
+
         Long driverId = request.getDriver() != null ? request.getDriver().getId() : null;
         if (driverId == null) {
             throw new RuntimeException("Driver ID is required");
@@ -89,7 +88,6 @@ public class AssignmentService {
         assignment.setEndTime(request.getEndTime());
         assignment.setStatus(request.getStatus());
 
-        // ✅ Distance calculation
         if (request.getStartLatitude() != 0 && request.getEndLatitude() != 0) {
             double distance = calculateDistance(
                     request.getStartLatitude(),
@@ -121,21 +119,21 @@ public class AssignmentService {
         existing.setEndTime(updated.getEndTime());
         existing.setStatus(updated.getStatus());
 
-        // ✅ Update vehicle
+
         if (updated.getVehicle() != null && updated.getVehicle().getId() != null) {
             Vehicle vehicle = vehicleRepository.findById(updated.getVehicle().getId())
                     .orElseThrow(() -> new RuntimeException("Vehicle not found"));
             existing.setVehicle(vehicle);
         }
 
-        // ✅ Update driver
+
         if (updated.getDriver() != null && updated.getDriver().getId() != null) {
             User driver = userRepository.findById(updated.getDriver().getId())
                     .orElseThrow(() -> new RuntimeException("Driver not found"));
             existing.setDriver(driver);
         }
 
-        // ✅ Recalculate distance
+
         double distance = calculateDistance(
                 existing.getStartLatitude(),
                 existing.getStartLongitude(),

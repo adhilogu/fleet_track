@@ -5,6 +5,7 @@ import com.example.fleet_track.models.Vehicle;
 import com.example.fleet_track.repository.UserRepository;
 import com.example.fleet_track.repository.VehicleRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -30,9 +31,191 @@ public class ProfileService {
     @Autowired
     private PasswordEncoder passwordEncoder;
 
-    /**
-     * Create a new user (Admin functionality)
-     */
+
+    public Map<String, Object> getMyProfile(Long userId) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            Optional<User> userOpt = userRepository.findById(userId);
+            if (!userOpt.isPresent()) {
+                response.put("success", false);
+                response.put("message", "User not found");
+                return response;
+            }
+            User user = userOpt.get();
+            Map<String, Object> profileData = new HashMap<>();
+            profileData.put("id", user.getId());
+            profileData.put("name", user.getName());
+            profileData.put("email", user.getMailId());
+            profileData.put("phone", user.getPhoneNumber());
+            profileData.put("username", user.getUsername());
+            profileData.put("role", user.getRole().name());
+            profileData.put("photo", user.getProfilePhoto());
+            profileData.put("createdDate", new Date().toString());
+
+            // If user is a driver, get driver details and assigned vehicle
+            if (user.getRole() == User.UserRole.DRIVER) {
+                profileData.put("driverId", user.getId());
+                profileData.put("licenseNumber", "DL-" + user.getId());
+                profileData.put("status", user.getStatus().name());
+                profileData.put("totalTrips", user.getTotalTrips());
+                profileData.put("rating", user.getRatings());
+                profileData.put("joinedDate", new Date().toString());
+
+                // Get assigned vehicle if exists
+                if (user.getAssignedVehicles() != null && !user.getAssignedVehicles().isEmpty()) {
+                    Vehicle vehicle = user.getAssignedVehicles().iterator().next();
+                    Map<String, Object> vehicleData = new HashMap<>();
+                    vehicleData.put("id", vehicle.getId());
+                    vehicleData.put("name", vehicle.getVehicleName());
+                    vehicleData.put("plateNumber", vehicle.getRegistrationNumber());
+                    vehicleData.put("model", vehicle.getModel());
+                    vehicleData.put("type", vehicle.getType().name());
+                    vehicleData.put("capacity", vehicle.getCapacity());
+                    vehicleData.put("status", vehicle.getStatus().name());
+                    vehicleData.put("lastServiceDate", vehicle.getLastServiceDate() != null ? vehicle.getLastServiceDate().toString() : "-");
+                    vehicleData.put("nextServiceDate", vehicle.getNextServiceDate() != null ? vehicle.getNextServiceDate().toString() : "-");
+
+                    profileData.put("assignedVehicle", vehicleData);
+                }
+            }
+
+            response.put("success", true);
+            response.put("profile", profileData);
+            return response;
+
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Error fetching profile: " + e.getMessage());
+            return response;
+        }
+    }
+
+
+
+
+
+
+
+    public Map<String, Object> getAllUsers() {
+        Map<String, Object> response = new HashMap<>();
+
+        List<User> users = userRepository.findAll();
+
+        List<Map<String, Object>> userList = users.stream()
+                .filter(user -> user.getRole() != User.UserRole.DRIVER)
+                .map(this::mapUserToResponse)
+                .collect(Collectors.toList());
+
+        response.put("success", true);
+        response.put("users", userList);
+        response.put("count", userList.size());
+
+        return response;
+    }
+
+
+    public Map<String, Object> getAllDrivers() {
+        Map<String, Object> response = new HashMap<>();
+
+        List<User> drivers = userRepository.findAll().stream()
+                .filter(user -> user.getRole() == User.UserRole.DRIVER)
+                .collect(Collectors.toList());
+
+        List<Map<String, Object>> driverList = drivers.stream()
+                .map(this::mapDriverToResponse)
+                .collect(Collectors.toList());
+
+        response.put("success", true);
+        response.put("drivers", driverList);
+        response.put("count", driverList.size());
+
+        return response;
+    }
+
+
+    public Map<String, Object> getAllVehicles() {
+        Map<String, Object> response = new HashMap<>();
+
+        List<Vehicle> vehicles = vehicleRepository.findAll();
+
+        List<Map<String, Object>> vehicleList = vehicles.stream()
+                .map(this::mapVehicleToResponse)
+                .collect(Collectors.toList());
+
+        response.put("success", true);
+        response.put("vehicles", vehicleList);
+        response.put("count", vehicleList.size());
+
+        return response;
+    }
+
+
+    private Map<String, Object> mapUserToResponse(User user) {
+        Map<String, Object> userMap = new HashMap<>();
+
+        userMap.put("id", user.getId());
+        userMap.put("name", user.getName());
+        userMap.put("email", user.getMailId());
+        userMap.put("phone", user.getPhoneNumber());
+        userMap.put("username", user.getUsername());
+        userMap.put("role", user.getRole().name().toLowerCase());
+        userMap.put("createdDate", new Date().toString());
+        userMap.put("status", user.getStatus().name().toLowerCase());
+        userMap.put("photo", user.getProfilePhoto());
+
+        return userMap;
+    }
+
+    private Map<String, Object> mapDriverToResponse(User driver) {
+        Map<String, Object> driverMap = new HashMap<>();
+
+        driverMap.put("id", driver.getId());
+        driverMap.put("name", driver.getName());
+        driverMap.put("email", driver.getMailId());
+        driverMap.put("phone", driver.getPhoneNumber());
+        driverMap.put("licenseNumber", "DL-" + driver.getId());
+        driverMap.put("status", driver.getStatus().name().toLowerCase().replace("_", "-"));
+        driverMap.put("totalTrips", driver.getTotalTrips());
+        driverMap.put("rating", driver.getRatings());
+        driverMap.put("joinedDate", new Date().toString());
+        driverMap.put("photo", driver.getProfilePhoto());
+
+        // FIXED: Changed from assignedVehicleId to assignedVehicle
+        if (driver.getAssignedVehicles() != null && !driver.getAssignedVehicles().isEmpty()) {
+            Vehicle vehicle = driver.getAssignedVehicles().iterator().next();
+            driverMap.put("assignedVehicle", vehicle.getId());
+        }
+
+        return driverMap;
+    }
+
+    private Map<String, Object> mapVehicleToResponse(Vehicle vehicle) {
+        Map<String, Object> vehicleMap = new HashMap<>();
+
+        vehicleMap.put("id", vehicle.getId());
+        vehicleMap.put("name", vehicle.getVehicleName());
+        vehicleMap.put("plateNumber", vehicle.getRegistrationNumber());
+        vehicleMap.put("model", vehicle.getModel() != null ? vehicle.getModel() : "Unknown Model");
+        vehicleMap.put("type", vehicle.getType().name().toLowerCase());
+        vehicleMap.put("capacity", vehicle.getCapacity());
+        vehicleMap.put("status", vehicle.getStatus().name().toLowerCase().replace("_", "-"));
+        vehicleMap.put("lastServiceDate",
+                vehicle.getLastServiceDate() != null ? vehicle.getLastServiceDate().toString() : "-");
+        vehicleMap.put("nextServiceDate",
+                vehicle.getNextServiceDate() != null ? vehicle.getNextServiceDate().toString() : "-");
+
+        // FIXED: Changed from assignedDriverId to assignedDriver
+        if (vehicle.getAssignedDrivers() != null && !vehicle.getAssignedDrivers().isEmpty()) {
+            User driver = vehicle.getAssignedDrivers().iterator().next();
+            vehicleMap.put("assignedDriver", driver.getId());
+        }
+
+        return vehicleMap;
+    }
+
+
+    //Create new user
+    @PreAuthorize("hasRole('ADMIN')")
     public Map<String, Object> createUser(
             String username,
             String password,
@@ -40,11 +223,11 @@ public class ProfileService {
             String mailId,
             String phoneNumber,
             String roleStr,
-            MultipartFile photo) {   // ← added parameter (can be null)
+            MultipartFile photo) {
 
         Map<String, Object> response = new HashMap<>();
 
-        // Existing validations...
+
         if (username == null || username.trim().isEmpty()) {
             response.put("success", false);
             response.put("message", "Username is required");
@@ -83,6 +266,8 @@ public class ProfileService {
                 .ratings(0.0f)
                 .build();
 
+   //################################## ADMIN ONLY CONTENTS     #########################################
+
         // Handle optional profile photo upload
         if (photo != null && !photo.isEmpty()) {
             try {
@@ -103,7 +288,7 @@ public class ProfileService {
                 return response;
             }
         }
-        // If no photo was sent → profilePhoto remains null (that's correct!)
+
 
         User savedUser = userRepository.save(user);
 
@@ -120,131 +305,8 @@ public class ProfileService {
         return response;
     }
 
-    /**
-     * Get all users (non-drivers for Users tab)
-     */
-    public Map<String, Object> getAllUsers() {
-        Map<String, Object> response = new HashMap<>();
-
-        List<User> users = userRepository.findAll();
-
-        List<Map<String, Object>> userList = users.stream()
-                .filter(user -> user.getRole() != User.UserRole.DRIVER) // Exclude drivers
-                .map(this::mapUserToResponse)
-                .collect(Collectors.toList());
-
-        response.put("success", true);
-        response.put("users", userList);
-        response.put("count", userList.size());
-
-        return response;
-    }
-
-    /**
-     * Get all drivers
-     */
-    public Map<String, Object> getAllDrivers() {
-        Map<String, Object> response = new HashMap<>();
-
-        List<User> drivers = userRepository.findAll().stream()
-                .filter(user -> user.getRole() == User.UserRole.DRIVER)
-                .collect(Collectors.toList());
-
-        List<Map<String, Object>> driverList = drivers.stream()
-                .map(this::mapDriverToResponse)
-                .collect(Collectors.toList());
-
-        response.put("success", true);
-        response.put("drivers", driverList);
-        response.put("count", driverList.size());
-
-        return response;
-    }
-
-    /**
-     * Get all vehicles
-     */
-    public Map<String, Object> getAllVehicles() {
-        Map<String, Object> response = new HashMap<>();
-
-        List<Vehicle> vehicles = vehicleRepository.findAll();
-
-        List<Map<String, Object>> vehicleList = vehicles.stream()
-                .map(this::mapVehicleToResponse)
-                .collect(Collectors.toList());
-
-        response.put("success", true);
-        response.put("vehicles", vehicleList);
-        response.put("count", vehicleList.size());
-
-        return response;
-    }
-
-
-    private Map<String, Object> mapUserToResponse(User user) {
-        Map<String, Object> userMap = new HashMap<>();
-
-        userMap.put("id", user.getId());                 // ✅ RAW ID
-        userMap.put("name", user.getName());
-        userMap.put("email", user.getMailId());
-        userMap.put("phone", user.getPhoneNumber());
-        userMap.put("username", user.getUsername());
-        userMap.put("role", user.getRole().name().toLowerCase());
-        userMap.put("createdDate", new Date().toString());
-        userMap.put("status", user.getStatus().name().toLowerCase());
-        userMap.put("photo", user.getProfilePhoto());   // null if no photo
-
-        return userMap;
-    }
-
-    private Map<String, Object> mapDriverToResponse(User driver) {
-        Map<String, Object> driverMap = new HashMap<>();
-
-        driverMap.put("id", driver.getId());
-        driverMap.put("name", driver.getName());
-        driverMap.put("email", driver.getMailId());
-        driverMap.put("phone", driver.getPhoneNumber());
-        driverMap.put("licenseNumber", "DL-" + driver.getId());
-        driverMap.put("status", driver.getStatus().name().toLowerCase().replace("_", "-"));
-        driverMap.put("totalTrips", driver.getTotalTrips());
-        driverMap.put("rating", driver.getRatings());
-        driverMap.put("joinedDate", new Date().toString());
-        driverMap.put("photo", driver.getProfilePhoto());
-
-        // FIXED: Changed from assignedVehicleId to assignedVehicle
-        if (driver.getAssignedVehicles() != null && !driver.getAssignedVehicles().isEmpty()) {
-            Vehicle vehicle = driver.getAssignedVehicles().iterator().next();
-            driverMap.put("assignedVehicle", vehicle.getId()); // ✅ CHANGED KEY NAME
-        }
-
-        return driverMap;
-    }
-
-    private Map<String, Object> mapVehicleToResponse(Vehicle vehicle) {
-        Map<String, Object> vehicleMap = new HashMap<>();
-
-        vehicleMap.put("id", vehicle.getId());
-        vehicleMap.put("name", vehicle.getVehicleName());
-        vehicleMap.put("plateNumber", vehicle.getRegistrationNumber());
-        vehicleMap.put("model", vehicle.getModel() != null ? vehicle.getModel() : "Unknown Model");
-        vehicleMap.put("type", vehicle.getType().name().toLowerCase());
-        vehicleMap.put("capacity", vehicle.getCapacity());
-        vehicleMap.put("status", vehicle.getStatus().name().toLowerCase().replace("_", "-"));
-        vehicleMap.put("lastServiceDate",
-                vehicle.getLastServiceDate() != null ? vehicle.getLastServiceDate().toString() : "-");
-        vehicleMap.put("nextServiceDate",
-                vehicle.getNextServiceDate() != null ? vehicle.getNextServiceDate().toString() : "-");
-
-        // FIXED: Changed from assignedDriverId to assignedDriver
-        if (vehicle.getAssignedDrivers() != null && !vehicle.getAssignedDrivers().isEmpty()) {
-            User driver = vehicle.getAssignedDrivers().iterator().next();
-            vehicleMap.put("assignedDriver", driver.getId()); // ✅ CHANGED KEY NAME
-        }
-
-        return vehicleMap;
-    }
-
-
+    //Create Vehicle
+    @PreAuthorize("hasRole('ADMIN')")
     public Map<String, Object> createVehicle(
             String vehicleName,
             String registrationNumber,
@@ -329,8 +391,8 @@ public class ProfileService {
         return response;
     }
 
-    // ==================== UPDATE METHODS ====================
-
+    //Update user
+    @PreAuthorize("hasRole('ADMIN')")
     public Map<String, Object> updateUser(Long id, Map<String, String> request) {
         Map<String, Object> response = new HashMap<>();
 
@@ -366,6 +428,9 @@ public class ProfileService {
         return response;
     }
 
+
+    // update Driver
+    @PreAuthorize("hasRole('ADMIN')")
     public Map<String, Object> updateDriver(Long id, Map<String, String> request) {
         Map<String, Object> response = new HashMap<>();
 
@@ -400,6 +465,8 @@ public class ProfileService {
         return response;
     }
 
+    //Update Vehicle
+    @PreAuthorize("hasRole('ADMIN')")
     public Map<String, Object> updateVehicle(Long id, Map<String, String> request) {
         Map<String, Object> response = new HashMap<>();
 
@@ -464,8 +531,8 @@ public class ProfileService {
         return response;
     }
 
-// ==================== DELETE METHODS ====================
-
+    //Delete User
+    @PreAuthorize("hasRole('ADMIN')")
     public Map<String, Object> deleteUser(Long id) {
         Map<String, Object> response = new HashMap<>();
 
@@ -482,6 +549,8 @@ public class ProfileService {
         return response;
     }
 
+    //Delete Driver
+    @PreAuthorize("hasRole('ADMIN')")
     public Map<String, Object> deleteDriver(Long id) {
         Map<String, Object> response = new HashMap<>();
 
@@ -499,6 +568,8 @@ public class ProfileService {
         return response;
     }
 
+    //Delete VEhcile
+    @PreAuthorize("hasRole('ADMIN')")
     public Map<String, Object> deleteVehicle(Long id) {
         Map<String, Object> response = new HashMap<>();
 

@@ -46,13 +46,14 @@ public class AssignmentController {
 
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> createAssignment(@RequestBody Assignment assignment) {
         //System.out.println("🔥 create HIT 🔥");
     return  ResponseEntity.ok(assignmentService.createAssignment(assignment));
     }
 
-    /* ================= UPDATE ================= */
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> updateAssignment(
             @PathVariable Long id,
             @RequestBody Assignment assignment
@@ -77,7 +78,6 @@ public class AssignmentController {
                     .body(new ErrorResponse(e.getMessage()));
         }
     }
-
 
     private record ErrorResponse(String message) {}
     private record SuccessResponse(String message) {}

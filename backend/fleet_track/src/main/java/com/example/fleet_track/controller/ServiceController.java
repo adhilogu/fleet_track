@@ -6,6 +6,7 @@ import com.example.fleet_track.repository.VehicleRepository;
 import com.example.fleet_track.service.ServiceService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -36,6 +37,7 @@ public class ServiceController {
     }
 
     @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Service> createService(@RequestBody Map<String, Object> request) {
         // Extract vehicleId from the request map
         Object vehicleObj = request.get("vehicle");
@@ -77,6 +79,7 @@ public class ServiceController {
     }
 
     @PutMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Service> updateService(
             @PathVariable("id") Long id,
             @RequestBody Service request) {
@@ -105,6 +108,7 @@ public class ServiceController {
     }
 
     @DeleteMapping("/{id}")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Void> deleteService(@PathVariable("id") Long id) {
         serviceService.deleteService(id);
         return ResponseEntity.noContent().build();

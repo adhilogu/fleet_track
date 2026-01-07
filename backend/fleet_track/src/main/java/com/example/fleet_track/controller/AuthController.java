@@ -4,6 +4,7 @@ package com.example.fleet_track.controller;
 import com.example.fleet_track.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
@@ -19,6 +20,7 @@ public class AuthController {
     private final AuthService authService;
 
     @PostMapping("/register")
+    //@PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> register(@RequestBody Map<String, String> request) {
         String username = request.get("username");
         String password = request.get("password");
@@ -49,6 +51,7 @@ public class AuthController {
     }
 
     @GetMapping("/test")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> test() {
         Map<String, Object> response = new HashMap<>();
 
@@ -66,6 +69,7 @@ public class AuthController {
     }
 
     @GetMapping("/me")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> getCurrentUser() {
         Map<String, Object> response = new HashMap<>();
 

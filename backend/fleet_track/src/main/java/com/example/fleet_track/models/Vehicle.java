@@ -18,6 +18,7 @@ import java.util.*;
 public class Vehicle {
 
     public enum VehicleType { BUS, CAR, TRUCK, CAB }
+    public enum VehicleLocationStatusType { TRACKED , UNTRACKED }
     public enum VehicleStatus { ACTIVE, INACTIVE, SERVICE, IDLE, MAINTENANCE, OUT_OF_SERVICE }
 
     @Id
@@ -29,12 +30,21 @@ public class Vehicle {
     @Column(name = "registration_number", unique = true)
     private String registrationNumber;
 
+    @Column(name = "vehicle_latitude")
+    private Double vehicleLatitude;
+
+    @Column(name = "vehicle_longitude")
+    private Double vehicleLongitude;
+
     // ADD THIS FIELD
     private String model;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private VehicleType type;
+
+    @Enumerated(EnumType.STRING)
+    private VehicleLocationStatusType vehicleLocationStatus;
 
     @Column(nullable = false)
     private Integer capacity;

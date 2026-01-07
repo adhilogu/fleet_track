@@ -5,7 +5,7 @@ import {
   Calendar, 
   Clock, 
   MapPin, 
-  Plus, 
+  PlusCircle, 
   Search, 
   Filter,
   Truck,
@@ -43,31 +43,12 @@ import { useAuth } from '@/contexts/AuthContext';
 import { cn } from '@/lib/utils';
 import { useToast } from '@/hooks/use-toast';
 import 'leaflet/dist/leaflet.css';
-import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8080/api';
 
-// Axios instance with auth
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
+import api from '@/api/api';
 
-api.interceptors.request.use((config) => {
-  const authToken = localStorage.getItem('jwt_token');
-  const csrfToken = localStorage.getItem('csrf_token');
 
-  if (authToken) {
-    config.headers.Authorization = `Bearer ${authToken}`;
-  }
-  if (csrfToken) {
-    config.headers['X-CSRF-TOKEN'] = csrfToken;
-    config.headers['X-Requested-With'] = 'XMLHttpRequest';
-  }
-  return config;
-});
+
 
 // Fix Leaflet default marker icons
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -211,7 +192,7 @@ const AssignmentsPage: React.FC = () => {
         const res = await api.get('/assignments');
         const data = res.data;
         assignmentsData = Array.isArray(data) ? data : [];
-        console.log('✅ Assignments loaded:', assignmentsData.length);
+        
       } catch (err: any) {
         const status = err.response?.status;
         if (status === 401 || status === 403) {
@@ -399,7 +380,6 @@ const AssignmentsPage: React.FC = () => {
         status: 'IN_PROGRESS',
       };
 
-      console.log('📝 Payload:', payload);
 
       await api.post('/assignments', payload);
 
@@ -520,27 +500,13 @@ const AssignmentsPage: React.FC = () => {
 
   const getVehicleById = (id: number) => {
     const vehicle = vehicles.find(v => v.id === id);
-    if (vehicle) {
-      console.log(`🔍 Found vehicle ${id}:`, {
-        name: vehicle.vehicleName,
-        reg: vehicle.registrationNumber
-      });
-    } else {
-      console.warn(`⚠️ Vehicle ${id} not found`);
-    }
+    
     return vehicle;
   };
 
   const getDriverById = (id: number) => {
     const driver = drivers.find(d => d.id === id);
-    if (driver) {
-      console.log(`🔍 Found driver ${id}:`, {
-        name: driver.name,
-        phone: driver.phoneNumber
-      });
-    } else {
-      console.warn(`⚠️ Driver ${id} not found`);
-    }
+    
     return driver;
   };
 
@@ -626,8 +592,8 @@ const getStatusColor = (status: string) => {
             if (!open) resetForm();
           }}>
             <DialogTrigger asChild>
-              <Button className="bg-blue-600 hover:bg-blue-700 text-white">
-                <Plus className="w-4 h-4 mr-2" />
+              <Button className="bg-primary hover:bg-blue-700">
+                <PlusCircle className="w-4 h-4 mr-2" />
                 Create Assignment
               </Button>
             </DialogTrigger>

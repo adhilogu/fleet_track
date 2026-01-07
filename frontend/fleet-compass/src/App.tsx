@@ -11,6 +11,7 @@ import TrackPage from "./pages/TrackPage";
 import AssignmentsPage from "./pages/AssignmentsPage";
 import ServicePage from "./pages/ServicePage";
 import ProfilesPage from "./pages/ProfilesPage";
+import DriverProfilePage from "./pages/DriverProfilePage";
 import NotFound from "./pages/NotFound";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
@@ -28,7 +29,6 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
         try {
           await checkAuthStatus();
         } catch (error) {
-          // Error handling is done in checkAuthStatus
           console.error('Auth check failed:', error);
         } finally {
           setChecking(false);
@@ -60,18 +60,30 @@ const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { user } = useAuth();
   if (user?.role !== 'ADMIN') {
     toast.error('Access denied. Admin privileges required.');
-    return <Navigate to="/dashboard" replace />;
+    return <Navigate to="/profile" replace />;
   }
   return <>{children}</>;
 };
 
 const AppRoutes = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
+
+  // Redirect based on role
+  const getDefaultRoute = () => {
+    if (!isAuthenticated) return "/login";
+    return user?.role === 'ADMIN' ? "/dashboard" : "/profile";
+  };
 
   return (
     <Routes>
-      <Route path="/login" element={isAuthenticated ? <Navigate to="/dashboard" replace /> : <LoginPage />} />
-      <Route path="/" element={<Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />} />
+      <Route 
+        path="/login" 
+        element={isAuthenticated ? <Navigate to={getDefaultRoute()} replace /> : <LoginPage />} 
+      />
+      <Route 
+        path="/" 
+        element={<Navigate to={getDefaultRoute()} replace />} 
+      />
       
       {/* Protected Routes with Dashboard Layout */}
       <Route element={
@@ -79,11 +91,17 @@ const AppRoutes = () => {
           <DashboardLayout />
         </ProtectedRoute>
       }>
-        <Route path="/dashboard" element={<DashboardPage />} />
+        {/* Admin-only routes */}
+        <Route path="/dashboard" element={<AdminRoute><DashboardPage /></AdminRoute>} />
         <Route path="/track" element={<AdminRoute><TrackPage /></AdminRoute>} />
+        <Route path="/profiles" element={<AdminRoute><ProfilesPage /></AdminRoute>} />
+        
+        {/* Shared routes */}
         <Route path="/assignments" element={<AssignmentsPage />} />
         <Route path="/service" element={<ServicePage />} />
-        <Route path="/profiles" element={<ProfilesPage />} />
+        
+        {/* Driver profile route */}
+        <Route path="/profile" element={<DriverProfilePage />} />
       </Route>
 
       <Route path="*" element={<NotFound />} />

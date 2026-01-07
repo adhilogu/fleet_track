@@ -7,10 +7,10 @@ import com.example.fleet_track.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.ProviderManager;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -31,6 +31,7 @@ import java.util.Collections;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true) // Enable @PreAuthorize annotations
 @RequiredArgsConstructor
 public class SecurityConfig {
 
@@ -39,36 +40,47 @@ public class SecurityConfig {
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http, JwtAuthenticationFilter jwtAuthFilter) throws Exception {
         http
-                .csrf(csrf -> csrf.disable()).sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .csrf(csrf -> csrf.disable())
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .cors(cors -> cors.configurationSource(corsConfigurationSource()))
                 .authorizeHttpRequests(auth -> auth
+
+                        //Common
                         .requestMatchers("/uploads/**").permitAll()
+                        //.requestMatchers("/api/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
 
-                        // Assignments endpoints - all methods require authentication
-                        .requestMatchers("/api/assignments/**").authenticated()
-
-                        .requestMatchers("/api/admin/**").hasRole("ADMIN")
-                        .requestMatchers("/api/driver/**").hasRole("DRIVER")
-                        
-                        .requestMatchers(HttpMethod.POST, "/api/services").hasRole("ADMIN")
-                        .requestMatchers("/api/services/**").authenticated()
-
+                        //Profile
+                        .requestMatchers("/api/v1/profiles/me/**").authenticated()
+                        .requestMatchers("/api/v1/profiles/**").authenticated()
                         .requestMatchers("/api/v1/profiles/create").hasRole("ADMIN")
-                        .requestMatchers("/api/v1/profiles/**").hasRole("ADMIN")
 
+
+                        //Dashboard
+                        .requestMatchers("/api/dashboard/**").hasRole("ADMIN")
+
+                        //Tracking
+                        .requestMatchers("/api/track/**").hasRole("ADMIN")
+
+                        //Assignments
+                        .requestMatchers("/api/assignments/**").authenticated()
+                        .requestMatchers("/api/assignments/create").hasRole("ADMIN")
+
+                        //Services
+                        .requestMatchers("/api/services/**").authenticated()
                         .requestMatchers("/api/vehicles/**").authenticated()
+                        .requestMatchers("/api/services/create").hasRole("ADMIN")
 
-                        .requestMatchers("/api/**").authenticated()
+
+
+
+
+
                         .anyRequest().authenticated()
                 )
-                .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
-                )
-
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
-        http.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
 
+        http.headers(headers -> headers.frameOptions(frame -> frame.sameOrigin()));
 
         return http.build();
     }
@@ -118,6 +130,4 @@ public class SecurityConfig {
         provider.setPasswordEncoder(passwordEncoder);
         return new ProviderManager(Collections.singletonList(provider));
     }
-
-
 }
