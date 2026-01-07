@@ -36,7 +36,7 @@ const adminNavItems = [
 const driverNavItems = [
   { icon: UserCircle, label: 'My Profile', path: '/profile' },
   { icon: Calendar, label: 'My Assignments', path: '/assignments' },
-  { icon: Truck, label: 'Vehicle Status', path: '/service' },
+  { icon: Truck, label: 'Vehicle Service', path: '/service' },
 ];
 
 export const AppSidebar: React.FC<SidebarProps> = ({ collapsed, onToggle }) => {

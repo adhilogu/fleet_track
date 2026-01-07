@@ -15,6 +15,8 @@ import DriverProfilePage from "./pages/DriverProfilePage";
 import NotFound from "./pages/NotFound";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import Footer from './components/layout/Footer';
+
 
 const queryClient = new QueryClient();
 
@@ -75,39 +77,39 @@ const AppRoutes = () => {
   };
 
   return (
-    <Routes>
-      <Route 
-        path="/login" 
-        element={isAuthenticated ? <Navigate to={getDefaultRoute()} replace /> : <LoginPage />} 
-      />
-      <Route 
-        path="/" 
-        element={<Navigate to={getDefaultRoute()} replace />} 
-      />
-      
-      {/* Protected Routes with Dashboard Layout */}
-      <Route element={
-        <ProtectedRoute>
-          <DashboardLayout />
-        </ProtectedRoute>
-      }>
-        {/* Admin-only routes */}
-        <Route path="/dashboard" element={<AdminRoute><DashboardPage /></AdminRoute>} />
-        <Route path="/track" element={<AdminRoute><TrackPage /></AdminRoute>} />
-        <Route path="/profiles" element={<AdminRoute><ProfilesPage /></AdminRoute>} />
+    <div className="min-h-screen flex flex-col">
+      <Routes>
+        <Route 
+          path="/login" 
+          element={isAuthenticated ? <Navigate to={getDefaultRoute()} replace /> : <LoginPage />} 
+        />
+        <Route 
+          path="/" 
+          element={<Navigate to={getDefaultRoute()} replace />} 
+        />
         
-        {/* Shared routes */}
-        <Route path="/assignments" element={<AssignmentsPage />} />
-        <Route path="/service" element={<ServicePage />} />
-        
-        {/* Driver profile route */}
-        <Route path="/profile" element={<DriverProfilePage />} />
-      </Route>
+        <Route element={
+          <ProtectedRoute>
+            <DashboardLayout />
+          </ProtectedRoute>
+        }>
+          <Route path="/dashboard" element={<AdminRoute><DashboardPage /></AdminRoute>} />
+          <Route path="/track" element={<AdminRoute><TrackPage /></AdminRoute>} />
+          <Route path="/profiles" element={<AdminRoute><ProfilesPage /></AdminRoute>} />
+          <Route path="/assignments" element={<AssignmentsPage />} />
+          <Route path="/service" element={<ServicePage />} />
+          <Route path="/profile" element={<DriverProfilePage />} />
+        </Route>
 
-      <Route path="*" element={<NotFound />} />
-    </Routes>
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+      
+      <Footer />  {/* ← Add here, outside Routes */}
+    </div>
   );
 };
+
+
 
 const App = () => (
   <QueryClientProvider client={queryClient}>

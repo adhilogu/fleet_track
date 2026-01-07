@@ -16,7 +16,7 @@ const LoginPage: React.FC = () => {
   const { toast } = useToast();
   const { login } = useAuth();
 
-  
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,9 +162,15 @@ const LoginPage: React.FC = () => {
             </Button>
           </form>
 
-          <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>Enter your credentials to access the dashboard</p>
+          <div className="mt-6 p-4 rounded-lg bg-secondary/50 border border-border">
+            <p className="text-xs text-muted-foreground text-center mb-2">Credentials</p>
+            <div className="text-xs text-center space-y-1">
+              <p><span className="text-primary">Admin Username:</span> admin</p>
+              <p><span className="text-primary">Driver Username:</span> driver</p>
+              <p><span className="text-muted-foreground">Password:</span> password</p>
+            </div>
           </div>
+
         </div>
       </div>
     </div>

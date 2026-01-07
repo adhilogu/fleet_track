@@ -1037,12 +1037,7 @@ const getStatusColor = (status: string) => {
                       <span>Cancelled</span>
                     </div>
                   </SelectItem>
-                  <SelectItem value="PENDING">
-                    <div className="flex items-center gap-2">
-                      <Clock className="w-3.5 h-3.5 text-yellow-500" />
-                      <span>Pending</span>
-                    </div>
-                  </SelectItem>
+                  
                 </SelectContent>
               </Select>
             ) : (
@@ -1199,6 +1194,7 @@ const getStatusColor = (status: string) => {
         </div>
 
         {/* Action Buttons */}
+        {isAdmin &&
         <div className="flex justify-between pt-3 border-t border-border">
           <Button
             variant="destructive"
@@ -1270,7 +1266,7 @@ const getStatusColor = (status: string) => {
               </Button>
             )}
           </div>
-        </div>
+        </div>}
       </div>
     )}
   </DialogContent>
