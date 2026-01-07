@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Truck, Users, Calendar, Wrench, TrendingUp, MapPin,
+  Truck, Users, Calendar, Wrench, CircleDashed,TrendingUp, MapPin,
   AlertTriangle, CheckCircle2, Clock, Shield
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -115,10 +115,10 @@ const DashboardPage = () => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-screen">
+      <div className="p-6 flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-muted-foreground">Loading dashboard...</p>
+          <CircleDashed className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
+          <p className="text-lg font-medium">Loading Dashboard...</p>
         </div>
       </div>
     );

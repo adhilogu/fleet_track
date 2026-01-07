@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Wrench, 
+  CircleDashed, 
   Search, 
   Filter, 
   Calendar, 
@@ -319,7 +319,7 @@ const ServicePage: React.FC = () => {
     return (
       <div className="p-6 flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <Wrench className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
+          <CircleDashed className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
           <p className="text-lg font-medium">Loading services...</p>
         </div>
       </div>
@@ -458,7 +458,7 @@ const ServicePage: React.FC = () => {
         {filteredRecords.length === 0 ? (
           <Card className="lg:col-span-2 glass border-border">
             <CardContent className="p-8 text-center">
-              <Wrench className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+              <CircleDashed className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
               <p className="text-lg font-medium">No service records found</p>
               <p className="text-sm text-muted-foreground">Try adjusting your filters or add new services</p>
             </CardContent>

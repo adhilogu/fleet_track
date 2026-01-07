@@ -15,7 +15,7 @@ import {
   Play,
   X,
   Edit,
-  Trash2,
+  Trash2,CircleDashed,
   Navigation,
   Loader2
 } from 'lucide-react';
@@ -568,8 +568,11 @@ const getStatusColor = (status: string) => {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center h-full min-h-screen">
-        <Loader2 className="w-8 h-8 animate-spin text-blue-500" />
+      <div className="p-6 flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <CircleDashed className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
+          <p className="text-lg font-medium">Loading Assignments...</p>
+        </div>
       </div>
     );
   }
