@@ -1,0 +1,9 @@
+.env
+application-prod.properties
+application-dev.properties
+fleet_track/target
+.idea
+fleet_track/HELP.md
+uploads
+node_modules/
+*.log

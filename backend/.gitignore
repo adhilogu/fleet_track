@@ -1,5 +1,9 @@
 fleet_track/target/
+fleet_track/HELP.md
 
 # React / Vite
 node_modules/
 dist/
+.idea
+.vscode
+*.log
