@@ -18,7 +18,7 @@ import java.util.*;
 public class Vehicle {
 
     public enum VehicleType { BUS, CAR, TRUCK, CAB }
-    public enum VehicleLocationStatusType { TRACKED , UNTRACKED }
+    public enum VehicleLocationStatusType { TRACKED, UNTRACKED }
     public enum VehicleStatus { ACTIVE, INACTIVE, SERVICE, IDLE, MAINTENANCE, OUT_OF_SERVICE }
 
     @Id
@@ -27,7 +27,7 @@ public class Vehicle {
 
     private String vehicleName;
 
-    @Column(name = "registration_number", unique = true)
+    @Column(name = "registration_number", unique = true, nullable = false)
     private String registrationNumber;
 
     @Column(name = "vehicle_latitude")
@@ -36,7 +36,6 @@ public class Vehicle {
     @Column(name = "vehicle_longitude")
     private Double vehicleLongitude;
 
-    // ADD THIS FIELD
     private String model;
 
     @Enumerated(EnumType.STRING)
@@ -44,28 +43,29 @@ public class Vehicle {
     private VehicleType type;
 
     @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
     private VehicleLocationStatusType vehicleLocationStatus;
 
     @Column(nullable = false)
     private Integer capacity;
 
     @Column(nullable = false)
-    private Float fuelLevel = 100.0f;
+    private Float fuelLevel;
 
     @Column(nullable = false)
-    private Float mileage = 0.0f;
+    private Float mileage;
 
     @Column(nullable = false)
-    private String currentLocation = "Depot";
+    private String currentLocation;
 
-    // RENAME THIS FIELD
     private LocalDate lastServiceDate;
-
     private LocalDate nextServiceDate;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private VehicleStatus status = VehicleStatus.ACTIVE;
+    private VehicleStatus status;
+
+    /* ================= RELATIONS ================= */
 
     @ManyToMany(mappedBy = "assignedVehicles")
     @JsonBackReference("user-vehicles")
@@ -78,4 +78,28 @@ public class Vehicle {
     @OneToMany(mappedBy = "vehicle", cascade = CascadeType.ALL, orphanRemoval = true)
     @JsonBackReference("vehicle-assignments")
     private List<Assignment> assignments = new ArrayList<>();
+
+    /* ================= DEFAULT SAFETY ================= */
+
+    @PrePersist
+    public void applyDefaults() {
+
+        if (vehicleLocationStatus == null)
+            vehicleLocationStatus = VehicleLocationStatusType.UNTRACKED;
+
+        if (fuelLevel == null)
+            fuelLevel = 100.0f;
+
+        if (mileage == null)
+            mileage = 0.0f;
+
+        if (currentLocation == null || currentLocation.isBlank())
+            currentLocation = "Depot";
+
+        if (status == null)
+            status = VehicleStatus.ACTIVE;
+
+        if (model == null || model.isBlank())
+            model = "Unknown Model";
+    }
 }

@@ -139,14 +139,21 @@ const ProfilesPage: React.FC = () => {
   if (userForm.photo) formData.append('photo', userForm.photo);
 
   try {
-    const res = await api.post('/v1/profiles/create', formData);
+    const res = await api.post('/v1/profiles/create', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
 
     toast({
       title: 'Success!',
-      description: `User "${res.data.username}" created successfully.`,
+      description: `User "${userForm.username}" created successfully.`,
     });
 
     setIsUserDialogOpen(false);
+    
+    const createdRole = userForm.role;
+    
     setUserForm({
       name: '',
       email: '',
@@ -157,10 +164,14 @@ const ProfilesPage: React.FC = () => {
       photo: null,
     });
 
-    userForm.role === 'driver'
-      ? fetchData('drivers', setDrivers)
-      : fetchData('users', setUsers);
+    // Refresh the appropriate list based on created role
+    if (createdRole === 'driver') {
+      fetchData('drivers', setDrivers);
+    } else {
+      fetchData('users', setUsers);
+    }
   } catch (err: any) {
+    console.error('User creation error:', err);
     toast({
       title: 'Failed',
       description: err.response?.data?.message || 'Unable to create user',

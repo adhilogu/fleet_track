@@ -30,33 +30,32 @@ public class User implements UserDetails {
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private UserRole role = UserRole.DRIVER; // Default to DRIVER
+    private UserRole role;
 
     @Column(nullable = false)
-    private String name = "Default User"; // Default
+    private String name;
 
     @Column(name = "profile_photo")
     private String profilePhoto;
 
     @Column(unique = true, nullable = false)
-    private String username; // login
+    private String username;
 
     @Column(nullable = false)
-    private String password; // password (BCrypt)
+    private String password;
 
-    @Column(unique = true, nullable = false)
-    private String mailId = "-"; // Optional for now
+    @Column(unique = true)
+    private String mailId;   // optional but unique
 
-    @Column(unique = true, nullable = false)
-    private String phoneNumber = "-"; // Optional for now
+    @Column(unique = true)
+    private String phoneNumber; // optional but unique
 
-    private Integer totalTrips = 0;
-
-    private Float ratings = 0.0f;
+    private Integer totalTrips;
+    private Float ratings;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
-    private UserStatus status = UserStatus.ACTIVE;
+    private UserStatus status;
 
     @ManyToMany
     @JoinTable(
@@ -64,7 +63,30 @@ public class User implements UserDetails {
             joinColumns = @JoinColumn(name = "user_id"),
             inverseJoinColumns = @JoinColumn(name = "vehicle_id")
     )
-    private Set<Vehicle> assignedVehicles; // Assume Vehicle exists; ignore for auth
+    private Set<Vehicle> assignedVehicles;
+
+    /* ================= DEFAULT SAFETY ================= */
+
+    @PrePersist
+    public void applyDefaults() {
+
+        if (role == null)
+            role = UserRole.DRIVER;
+
+        if (name == null || name.isBlank())
+            name = "Default User";
+
+        if (status == null)
+            status = UserStatus.ACTIVE;
+
+        if (totalTrips == null)
+            totalTrips = 0;
+
+        if (ratings == null)
+            ratings = 0.0f;
+    }
+
+    /* ================= SECURITY ================= */
 
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
@@ -72,39 +94,13 @@ public class User implements UserDetails {
     }
 
     @Override
-    public String getPassword() {
-        return password;
-    }
-
-
-    public String getProfilePhoto() {
-        return profilePhoto;
-    }
-
-    public void setProfilePhoto(String profilePhoto) {
-        this.profilePhoto = profilePhoto;
-    }
-
+    public boolean isAccountNonExpired() { return true; }
 
     @Override
-    public String getUsername() {
-        return username;
-    }
+    public boolean isAccountNonLocked() { return true; }
 
     @Override
-    public boolean isAccountNonExpired() {
-        return true;
-    }
-
-    @Override
-    public boolean isAccountNonLocked() {
-        return true;
-    }
-
-    @Override
-    public boolean isCredentialsNonExpired() {
-        return true;
-    }
+    public boolean isCredentialsNonExpired() { return true; }
 
     @Override
     public boolean isEnabled() {
