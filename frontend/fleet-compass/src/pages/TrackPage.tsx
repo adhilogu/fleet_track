@@ -222,7 +222,7 @@ const TrackPage: React.FC = () => {
       </style>
 
       <MapContainer
-        center={[40.7128, -74.006]}
+        center={[13.0830, 80.2704]}
         zoom={12}
         className="h-full w-full"
         zoomControl={false}

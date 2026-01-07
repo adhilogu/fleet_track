@@ -199,6 +199,7 @@ public class ProfileService {
         vehicleMap.put("type", vehicle.getType().name().toLowerCase());
         vehicleMap.put("capacity", vehicle.getCapacity());
         vehicleMap.put("status", vehicle.getStatus().name().toLowerCase().replace("_", "-"));
+        vehicleMap.put("vehicle_location_status", vehicle.getVehicleLocationStatus().name().toLowerCase().replace("_", "-"));
         vehicleMap.put("lastServiceDate",
                 vehicle.getLastServiceDate() != null ? vehicle.getLastServiceDate().toString() : "-");
         vehicleMap.put("nextServiceDate",

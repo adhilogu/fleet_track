@@ -16,6 +16,7 @@ type DriverStatus = 'active' | 'ontrip' | 'inactive';
 type VehicleType = 'bus' | 'truck' | 'cab' | 'car';
 type VehicleStatus = 'active' |'inactive' |'service' | 'idle' | 'maintenance' | 'out-of-service';
 type UserRole = 'admin' | 'driver' | 'user';
+type VehicleLocationStatus = 'tracked' | 'untracked' ;
 
 interface Driver {
   id: string;
@@ -39,6 +40,7 @@ interface Vehicle {
   type: VehicleType;
   capacity: number;
   status: VehicleStatus;
+  vehicle_location_status: VehicleLocationStatus;
   lastServiceDate: string;
   nextServiceDate: string;
   assignedDriver?: string;
@@ -417,6 +419,8 @@ const handleEditVehicle = (vehicle: Vehicle) => {
       vehicle: {
         'active': 'bg-green-500/20 text-green-700 border-green-500/30',
         'inactive': 'bg-red-500/20 text-red-700 border-red-500/30',
+        'tracked': 'bg-green-500/20 text-green-700 border-green-500/30',
+        'untracked': 'bg-red-500/20 text-red-700 border-red-500/30',
         'idle': 'bg-gray-500/20 text-gray-700 border-gray-500/30',
         'maintenance': 'bg-yellow-500/20 text-yellow-700 border-yellow-500/30',
         'out-of-service': 'bg-red-500/20 text-red-700 border-red-500/30'
@@ -589,6 +593,8 @@ const handleEditVehicle = (vehicle: Vehicle) => {
                           <SelectItem value="out-of-service">Out of Service</SelectItem>
                         </SelectContent>
                       </Select>
+
+                      
                     </div>
 
                     <div className="flex justify-end gap-2 pt-4">
@@ -653,9 +659,7 @@ const handleEditVehicle = (vehicle: Vehicle) => {
             <SelectTrigger id="editUserRole"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="admin">Admin</SelectItem>
-              <SelectItem value="manager">Manager</SelectItem>
               <SelectItem value="driver">Driver</SelectItem>
-              <SelectItem value="user">User</SelectItem>
             </SelectContent>
           </Select>
         </div>
@@ -778,7 +782,6 @@ const handleEditVehicle = (vehicle: Vehicle) => {
               <SelectItem value="all">All Roles</SelectItem>
               <SelectItem value="admin">Admin</SelectItem>
               <SelectItem value="driver">Driver</SelectItem>
-              <SelectItem value="user">User</SelectItem>
             </SelectContent>
           </Select>
         )}
@@ -1001,9 +1004,17 @@ const handleEditVehicle = (vehicle: Vehicle) => {
                             <p className="text-sm text-muted-foreground">{vehicle.plateNumber}</p>
                           </div>
                         </div>
-                        <Badge className={`capitalize ${getStatusColor(vehicle.status, 'vehicle')}`}>
-                          {vehicle.status.replace('-', ' ')}
-                        </Badge>
+
+                        <div className="flex gap-2 ">
+                          <Badge className={`capitalize ${getStatusColor(vehicle.vehicle_location_status, 'vehicle')}`}>
+                            {vehicle.vehicle_location_status.replace('-', ' ')}
+                          </Badge>
+
+                          <Badge className={`capitalize ${getStatusColor(vehicle.status, 'vehicle')}`}>
+                            {vehicle.status.replace('-', ' ')}
+                          </Badge>
+                        </div>
+
                       </div>
 
                       <p className="text-sm text-muted-foreground mb-4">{vehicle.model}</p>
@@ -1056,7 +1067,6 @@ const handleEditVehicle = (vehicle: Vehicle) => {
     </TabsContent>
   </Tabs>
 
-  {/* User Detail Dialog with Edit/Delete */}
   {/* User Detail Dialog with Edit/Delete */}
 <Dialog open={!!selectedUser} onOpenChange={() => setSelectedUser(null)}>
   <DialogContent className="max-w-2xl">
