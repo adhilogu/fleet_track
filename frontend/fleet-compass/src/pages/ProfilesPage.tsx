@@ -56,7 +56,7 @@ interface SystemUser {
 }
 
 const ProfilesPage: React.FC = () => {
-  const { user, token } = useAuth();
+  const { user } = useAuth();
   const { toast } = useToast();
    const isAdmin = user?.role === 'ADMIN';
 
@@ -326,7 +326,7 @@ const handleEditUser = (user: SystemUser) => {
   setUserForm({
     name: user.name || '',
     email: user.email || '',
-    phone: user.phone || '',        // ✅ FIXED
+    phone: user.phone || '',        
     username: user.username || '',
     password: '',
     role: user.role,
@@ -342,7 +342,7 @@ const handleEditDriver = (driver: Driver) => {
   setUserForm({
     name: driver.name || '',
     email: driver.email || '',
-    phone: driver.phone || '',     // ✅ FIXED
+    phone: driver.phone || '',     
     username: '',
     password: '',
     role: 'driver',
