@@ -11,6 +11,8 @@ import api from '@/api/api';
 const LoginPage: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
+  const [showSlowWarning, setShowSlowWarning] = useState(false);
+
   const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -19,64 +21,64 @@ const LoginPage: React.FC = () => {
 
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  e.preventDefault();
 
-    if (!username.trim() || !password.trim()) {
-      toast({
-        title: 'Missing fields',
-        description: 'Please enter both username and password',
-        variant: 'destructive',
+  if (!username.trim() || !password.trim()) {
+    toast({
+      title: 'Missing fields',
+      description: 'Please enter both username and password',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  setIsLoading(true);
+  setShowSlowWarning(false);
+
+  // Start slow response timeout
+  const slowTimer = setTimeout(() => {
+    setShowSlowWarning(true);
+  }, 10000); // 10 seconds
+
+  try {
+    const response = await api.post('/auth/login', {
+      username: username.trim(),
+      password: password.trim(),
+    });
+
+    const data = response.data;
+
+    if (data.success && data.token) {
+      login(data.token, {
+        username: data.username,
+        role: data.role,
+        userId: data.userId,
+        name: data.name,
       });
-      return;
-    }
-
-    setIsLoading(true);
-
-    try {
-      const response = await api.post('/auth/login', {
-        username: username.trim(),
-        password: password.trim(),
-      });
-
-      const data = response.data;
-
-      if (data.success && data.token) {
-        // Update auth context
-        login(data.token, {
-          username: data.username,
-          role: data.role,
-          userId: data.userId,
-          name: data.name,
-        });
-
-        toast({
-          title: 'Welcome back!',
-          description: `Logged in as ${data.name || data.username}`,
-        });
-
-        // Navigate to dashboard
-        setTimeout(() => {
-          navigate('/dashboard', { replace: true });
-        }, 100);
-      } else {
-        throw new Error(data.message || 'Login failed');
-      }
-    } catch (error: any) {
-      console.error('Login error:', error);
-
-      const errorMessage = error.response?.data?.message || 
-                          error.message || 
-                          'Invalid username or password';
 
       toast({
-        title: 'Login Failed',
-        description: errorMessage,
-        variant: 'destructive',
+        title: 'Welcome back!',
+        description: `Logged in as ${data.name || data.username}`,
       });
-    } finally {
-      setIsLoading(false);
+
+      setTimeout(() => navigate('/dashboard', { replace: true }), 100);
+    } else {
+      throw new Error(data.message || 'Login failed');
     }
-  };
+  } catch (error: any) {
+    const errorMessage = error.response?.data?.message || error.message || 'Invalid username or password';
+    toast({
+      title: 'Login Failed',
+      description: errorMessage,
+      variant: 'destructive',
+    });
+  } finally {
+    clearTimeout(slowTimer); // clear timeout once done
+    setIsLoading(false);
+    setShowSlowWarning(false);
+  }
+};
+
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
@@ -160,6 +162,12 @@ const LoginPage: React.FC = () => {
                 'Sign In'
               )}
             </Button>
+            
+            {showSlowWarning && (
+              <p className="text-sm text-red-500 text-center mt-2">
+                Server response is taking longer than usual... Kindly wait.
+              </p>
+            )}
           </form>
 
           <div className="mt-6 p-4 rounded-lg bg-secondary/50 border border-border">
