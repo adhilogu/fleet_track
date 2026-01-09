@@ -55,7 +55,6 @@ public class SecurityConfig {
                         .requestMatchers("/api/v1/profiles/**").authenticated()
                         .requestMatchers("/api/v1/profiles/create").hasRole("ADMIN")
 
-
                         //Dashboard
                         .requestMatchers("/api/dashboard/**").hasRole("ADMIN")
 
