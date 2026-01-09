@@ -70,7 +70,7 @@ https://fleet-track-lake.vercel.app
 
 **ERP Diagram:**
 ![erp](git-images/erp.png)
-Details Page
+
 
 ## 📁 Project Structure
 
