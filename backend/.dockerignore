@@ -7,3 +7,4 @@ fleet_track/HELP.md
 uploads
 node_modules/
 *.log
+fleet_track/src/main/java/com/example/fleet_track/archives

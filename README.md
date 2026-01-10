@@ -21,7 +21,7 @@ https://fleet-track-lake.vercel.app
 ## 🔒 Authentication & Security
 
 - JWT authentication
-- BCrypt encoded passwords
+- Argon2 encoded passwords
 - CSRF protection
 - Role-based access (Admin/Driver)
 - Spring Security filters

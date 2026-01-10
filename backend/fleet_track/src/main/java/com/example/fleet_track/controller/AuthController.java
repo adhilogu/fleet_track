@@ -1,11 +1,13 @@
 // File: src/main/java/com/example/fleet_track/controller/UserController.java
 package com.example.fleet_track.controller;
 
+import com.example.fleet_track.models.User;
 import com.example.fleet_track.service.AuthService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.*;
 
@@ -68,22 +70,15 @@ public class AuthController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/me")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<Map<String, Object>> getCurrentUser() {
+
+    @GetMapping("/verify")
+    public ResponseEntity<?> verifyToken(@AuthenticationPrincipal User user) {
         Map<String, Object> response = new HashMap<>();
-
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication != null && authentication.isAuthenticated()) {
-            response.put("success", true);
-            response.put("username", authentication.getName());
-            response.put("authorities", authentication.getAuthorities());
-        } else {
-            response.put("success", false);
-            response.put("message", "Not authenticated");
-        }
-
+        response.put("valid", true);
+        response.put("username", user.getUsername());
+        response.put("role", user.getRole().name());
+        //System.out.println("verify Token.....");
         return ResponseEntity.ok(response);
+
     }
 }

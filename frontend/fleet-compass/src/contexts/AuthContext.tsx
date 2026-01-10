@@ -1,3 +1,5 @@
+// File: src/contexts/AuthContext.tsx
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { toast } from 'sonner';
 
@@ -7,8 +9,6 @@ interface User {
   userId: string;
   name: string;
 }
-
-
 
 interface AuthContextType {
   isAuthenticated: boolean;
@@ -33,7 +33,6 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     setToken(null);
     setIsAuthenticated(false);
     
-    // Small delay to allow toast to be seen
     setTimeout(() => {
       window.location.href = '/login';
     }, 100);
@@ -48,8 +47,8 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     }
 
     try {
-      // Verify token with backend - adjust this endpoint to match your API
-      const response = await fetch('/api/auth/verify', {
+      // ✅ CHANGE THIS - Update the URL to match your backend
+      const response = await fetch('http://localhost:8080/api/auth/verify', {  // ✅ ADD YOUR BACKEND URL
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${storedToken}`,
@@ -58,23 +57,21 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       });
 
       if (!response.ok) {
-        // Token is invalid or expired (403, 401, etc.)
         console.error('Token verification failed:', response.status);
         
-        if (response.status === 403) {
+        // ✅ Handle different error codes
+        if (response.status === 403 || response.status === 401) {
           toast.error('Session expired. Please login again.');
-        } else if (response.status === 401) {
-          toast.error('Authentication failed. Please login again.');
         } else {
           toast.error('Authentication error. Please login again.');
         }
         
         logout();
       }
+      // ✅ If response is OK, token is valid - do nothing
     } catch (error) {
-      // Backend is not reachable or network error
-      console.error('Auth verification failed - backend might be down:', error);
-      toast.error('Unable to connect to server. Please try again later.');
+      console.error('Auth verification failed:', error);
+      toast.error('Unable to connect to server.');
       logout();
     }
   };
@@ -90,14 +87,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         setToken(storedToken);
         setIsAuthenticated(true);
         
-        // Verify token is still valid on mount
+        // Verify token on mount
         checkAuthStatus();
       } catch (error) {
         console.error('Failed to parse user data:', error);
         logout();
       }
     }
-  }, []);
+  }, []); // ✅ Empty dependency array is fine here
 
   const login = (authToken: string, userData: User) => {
     localStorage.setItem('jwt_token', authToken);

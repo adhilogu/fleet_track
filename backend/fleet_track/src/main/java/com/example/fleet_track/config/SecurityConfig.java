@@ -51,7 +51,8 @@ public class SecurityConfig {
                         //Common
                         .requestMatchers("/uploads/**").permitAll()
                         //.requestMatchers("/api/**").permitAll()
-                        .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers("/api/auth/login", "/api/auth/register").permitAll()
+                        .requestMatchers("/api/auth/verify").authenticated()
 
                         //Profile
                         .requestMatchers("/api/v1/profiles/me/**").authenticated()

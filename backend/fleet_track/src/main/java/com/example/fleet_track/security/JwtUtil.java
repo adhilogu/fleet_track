@@ -7,18 +7,16 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import io.jsonwebtoken.security.Keys;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
-
 import java.security.Key;
-import java.util.Date;
-import java.util.HashMap;
-import java.util.Map;
+import java.util.*;
+
 import java.util.function.Function;
 
 @Component
 public class JwtUtil {
 
-    private static final String SECRET_KEY = "your-secret-key-must-be-at-least-256-bits-long-for-HS256-algorithm-security-please-change-this";
-    private static final long JWT_EXPIRATION = 1000 * 60 * 60 * 10; // 10 hours
+    private static final String SECRET_KEY = "Q76FPU/nv7NWa3KJQah5RZ1THADGfcOQRHa9+IiXhUE=";
+    private static final long JWT_EXPIRATION = 1000 * 60 * 60 ; // 1hour
 
     private Key getSigningKey() {
         return Keys.hmacShaKeyFor(SECRET_KEY.getBytes());
