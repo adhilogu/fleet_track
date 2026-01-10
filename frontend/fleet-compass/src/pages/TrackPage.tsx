@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Search, X, Navigation, MapPin, Phone, Truck, User, List, Eye } from 'lucide-react';
+import { Search, X, Navigation, MapPin, Phone, Truck, CircleDashed,User, List, Eye } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -55,6 +55,7 @@ interface Driver {
 }
 
 const createCustomIcon = (type: string, locationStatus: string, isTracking: boolean = false) => {
+  
   const typeColors: Record<string, string> = {
     BUS: '#22c55e',
     TRUCK: '#3b82f6', 
@@ -129,6 +130,7 @@ const TrackPage: React.FC = () => {
   const [showResults, setShowResults] = useState(false);
   const [showAllVehicles, setShowAllVehicles] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [searchLoading, setSearchLoading] = useState(false);
 
   useEffect(() => {
     fetchAllVehicles();
@@ -136,10 +138,14 @@ const TrackPage: React.FC = () => {
 
   const fetchAllVehicles = async () => {
   try {
+    setLoading(true);
     const res = await api.get('/track/vehicles/all');
     setVehicles(res.data || []);
   } catch (error) {
     console.error('Error fetching vehicles:', error);
+  } finally {
+    setLoading(false);
+    
   }
 };
 
@@ -151,7 +157,7 @@ const TrackPage: React.FC = () => {
       return;
     }
 
-    setLoading(true);
+    setSearchLoading(true);
     try {
       const res = await api.get('/track/vehicles/search', {
         params: { query: searchQuery },
@@ -162,7 +168,7 @@ const TrackPage: React.FC = () => {
     } catch (error) {
       console.error('Error searching:', error);
     } finally {
-      setLoading(false);
+      setSearchLoading(false);
     }
   };
 
@@ -299,7 +305,16 @@ const TrackPage: React.FC = () => {
           </div>
 
           {/* Search Results Dropdown */}
-          {showResults && searchResults && (
+          {searchLoading && (
+            <div className="mt-2 p-4 text-sm text-muted-foreground text-center">
+              <div className="text-center">
+              <CircleDashed className="w-8 h-8 text-primary mx-auto mb-4 animate-spin" />
+              <p className="text-xs font-medium">Loading Results...</p>
+            </div>
+            </div>
+          )}
+      
+          {!loading && showResults && searchResults && (
             <div className="mt-2 max-h-64 overflow-y-auto scrollbar-thin rounded-lg bg-card border border-border">
               {searchResults.vehicles.length === 0 && searchResults.drivers.length === 0 ? (
                 <p className="p-4 text-sm text-muted-foreground text-center">No results found</p>
@@ -356,6 +371,15 @@ const TrackPage: React.FC = () => {
           )}
 
           {/* View All Vehicles Panel */}
+          {loading && (
+            <div className="mt-2 p-4 text-sm text-muted-foreground text-center">
+              <div className="text-center">
+              <CircleDashed className="w-8 h-8 text-primary mx-auto mb-4 animate-spin" />
+              <p className="text-xs font-medium">Loading Results...</p>
+            </div>
+            </div>
+          )}
+
           {showAllVehicles && (
             <div className="mt-2 max-h-96 overflow-y-auto scrollbar-thin rounded-lg bg-card border border-border">
               <div className="sticky top-0 bg-card border-b border-border p-3 flex items-center justify-between">

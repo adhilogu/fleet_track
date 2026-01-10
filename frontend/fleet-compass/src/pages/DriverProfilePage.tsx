@@ -7,7 +7,7 @@ import {
   Calendar,
   Award,
   Truck,
-  Loader2
+  Loader2,CircleDashed
 } from 'lucide-react';
 
 import { Card, CardContent } from '@/components/ui/card';
@@ -120,8 +120,11 @@ const DriverProfilePage: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <div className="p-6 flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <CircleDashed className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
+          <p className="text-lg font-medium">Loading ...</p>
+        </div>
       </div>
     );
   }

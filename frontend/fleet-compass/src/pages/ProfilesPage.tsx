@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Users, Search, Truck, User, Phone, Mail, Star, Calendar, Award, PlusCircle, Upload, Filter, Lock, Edit, Trash2 } from 'lucide-react';
+import { Users, Search, Truck, User, Phone, Mail,CircleDashed, Star, Calendar, Award, PlusCircle, Upload, Filter, Lock, Edit, Trash2 } from 'lucide-react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -103,7 +103,8 @@ const ProfilesPage: React.FC = () => {
     if (data.success) setter(data[endpoint]);
   } catch (err) {
     console.error(`Error fetching ${endpoint}:`, err);
-  } finally {
+  } 
+  finally {
     setLoading(false);
   }
 };
@@ -436,7 +437,17 @@ const handleEditVehicle = (vehicle: Vehicle) => {
   };
 
   const getVehicleIcon = (type: VehicleType) => ({ bus: '🚌', truck: '🚛', cab: '🚕', car: '🚗' }[type]);
-
+  
+  if (loading) {
+    return (
+      <div className="p-6 flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <CircleDashed className="w-12 h-12 text-primary mx-auto mb-4 animate-spin" />
+          <p className="text-lg font-medium">Loading Profiles...</p>
+        </div>
+      </div>
+    );
+  }
   return (
     <div className="p-6 space-y-6">
       <div className="flex items-center justify-between">

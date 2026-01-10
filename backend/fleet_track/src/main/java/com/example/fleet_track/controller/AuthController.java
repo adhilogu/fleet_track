@@ -79,6 +79,5 @@ public class AuthController {
         response.put("role", user.getRole().name());
         //System.out.println("verify Token.....");
         return ResponseEntity.ok(response);
-
     }
 }
