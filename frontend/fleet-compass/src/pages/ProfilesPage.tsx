@@ -482,9 +482,7 @@ const handleEditVehicle = (vehicle: Vehicle) => {
                         <SelectTrigger id="userRole"><SelectValue /></SelectTrigger>
                         <SelectContent>
                           <SelectItem value="admin">Admin</SelectItem>
-                          <SelectItem value="manager">Manager</SelectItem>
                           <SelectItem value="driver">Driver</SelectItem>
-                          <SelectItem value="user">User</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>

@@ -1,21 +1,23 @@
-// File: src/main/java/com/example/fleet_track/services/AuthService.java
 package com.example.fleet_track.service;
 
 import com.example.fleet_track.models.User;
 import com.example.fleet_track.repository.UserRepository;
 import com.example.fleet_track.security.JwtUtil;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
+import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
+import java.util.*;
 
-import java.util.HashMap;
-import java.util.Map;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthService {
 
     private final UserRepository userRepository;
@@ -23,10 +25,9 @@ public class AuthService {
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
 
-    public Map<String, Object> register(String username, String password, String name ,String mail_id,String phone_number) {
+    public Map<String, Object> register(String username, String password, String name, String mail_id, String phone_number) {
         Map<String, Object> response = new HashMap<>();
 
-        // Check if username already exists
         if (username == null || username.trim().isEmpty() || password == null || password.trim().isEmpty()) {
             response.put("success", false);
             response.put("message", "Username and password are required");
@@ -39,28 +40,33 @@ public class AuthService {
             return response;
         }
 
-        // Create new user
-        User user = User.builder()
-                .username(username)
-                .password(passwordEncoder.encode(password))
-                .name(name != null ? name : "Default User")
-                .role(User.UserRole.DRIVER)
-                .status(User.UserStatus.ACTIVE)
-                .mailId(mail_id)
-                .phoneNumber(phone_number)
-                .build();
+        try {
+            User user = User.builder()
+                    .username(username)
+                    .password(passwordEncoder.encode(password))
+                    .name(name != null ? name : "Default User")
+                    .role(User.UserRole.DRIVER)
+                    .status(User.UserStatus.ACTIVE)
+                    .mailId(mail_id)
+                    .phoneNumber(phone_number)
+                    .build();
 
-        userRepository.save(user);
+            userRepository.save(user);
 
-        // Generate JWT token
-        String token = jwtUtil.generateToken(user);
+            String token = jwtUtil.generateToken(user);
 
-        response.put("success", true);
-        response.put("token", token);
-        response.put("username", user.getUsername());
-        response.put("role", user.getRole().name());
-        response.put("userId", user.getId());
-        response.put("message", "User registered successfully");
+            response.put("success", true);
+            response.put("token", token);
+            response.put("username", user.getUsername());
+            response.put("role", user.getRole().name());
+            response.put("userId", user.getId());
+            response.put("message", "User registered successfully");
+
+        } catch (Exception e) {
+            log.error("Registration failed: ", e);
+            response.put("success", false);
+            response.put("message", "Registration failed");
+        }
 
         return response;
     }
@@ -69,14 +75,12 @@ public class AuthService {
         Map<String, Object> response = new HashMap<>();
 
         try {
-            // Authenticate user
             Authentication authentication = authenticationManager.authenticate(
                     new UsernamePasswordAuthenticationToken(username, password)
             );
 
             User user = (User) authentication.getPrincipal();
 
-            // Generate JWT token
             String token = jwtUtil.generateToken(user);
 
             response.put("success", true);
@@ -87,9 +91,18 @@ public class AuthService {
             response.put("name", user.getName());
             response.put("message", "Login successful");
 
-        } catch (Exception e) {
+        } catch (BadCredentialsException e) {
+            log.error("Invalid credentials for user: {}", username);
             response.put("success", false);
             response.put("message", "Invalid username or password");
+        } catch (AuthenticationException e) {
+            log.error("Authentication failed: ", e);
+            response.put("success", false);
+            response.put("message", "Authentication failed");
+        } catch (Exception e) {
+            log.error("Login error: ", e);
+            response.put("success", false);
+            response.put("message", "Login failed");
         }
 
         return response;

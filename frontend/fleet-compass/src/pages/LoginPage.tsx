@@ -38,7 +38,7 @@ const LoginPage: React.FC = () => {
   // Start slow response timeout
   const slowTimer = setTimeout(() => {
     setShowSlowWarning(true);
-  }, 10000); // 10 seconds
+  }, 5000); // 10 seconds
 
   try {
     const response = await api.post('/auth/login', {
@@ -162,7 +162,7 @@ const LoginPage: React.FC = () => {
                 'Sign In'
               )}
             </Button>
-            
+
             {showSlowWarning && (
               <p className="text-sm text-red-500 text-center mt-2">
                 Server response is taking longer than usual... Kindly wait.
